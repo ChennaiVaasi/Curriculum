@@ -25,9 +25,9 @@ export default async function ChapterPage({
         <section className="rounded-[2rem] border border-stone-200 bg-white p-8 shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
           <div className="flex flex-wrap items-center gap-3 text-xs uppercase tracking-[0.2em] text-stone-500">
             {book ? <Link href={`/books/${book.id}`}>{book.title}</Link> : <span>Unknown book</span>}
-            <span>•</span>
+            <span>-</span>
             <span>{chapter.level}</span>
-            <span>•</span>
+            <span>-</span>
             <span>{chapter.theme}</span>
           </div>
           <h1 className="mt-4 text-4xl font-semibold tracking-tight">{chapter.title}</h1>
@@ -53,16 +53,12 @@ export default async function ChapterPage({
             <h2 className="text-lg font-semibold tracking-tight">Chapter reader</h2>
             <p className="mt-1 text-sm text-stone-500">The PDF streams from private R2 storage through the app.</p>
           </div>
-          <iframe
-            title={chapter.title}
-            src={`/api/files/${chapter.id}`}
-            className="h-[70vh] w-full bg-stone-100"
-          />
+          <iframe title={chapter.title} src={`/api/files/${chapter.id}`} className="h-[70vh] w-full bg-stone-100" />
         </section>
       </div>
 
       <div className="grid gap-6">
-        <ChapterChat chapterId={chapter.id} chapterTitle={chapter.title} />
+        <ChapterChat chapterId={chapter.id} chapterTitle={chapter.title} bookTitle={book?.title} />
 
         <section className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
           <h2 className="text-lg font-semibold tracking-tight">More from this book</h2>
