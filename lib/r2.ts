@@ -1,0 +1,108 @@
+import {
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+  type S3ClientConfig,
+} from "@aws-sdk/client-s3";
+
+const env = {
+  accountId: process.env.R2_ACCOUNT_ID,
+  accessKeyId: process.env.R2_ACCESS_KEY_ID,
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+  bucket: process.env.R2_BUCKET,
+  catalogKey: process.env.R2_CATALOG_KEY || "catalog/catalog.json",
+};
+
+let cachedClient: S3Client | null = null;
+
+export function isR2Configured() {
+  return Boolean(env.accountId && env.accessKeyId && env.secretAccessKey && env.bucket);
+}
+
+function getClient() {
+  if (!isR2Configured()) {
+    throw new Error("Cloudflare R2 is not configured.");
+  }
+
+  if (cachedClient) {
+    return cachedClient;
+  }
+
+  const config: S3ClientConfig = {
+    region: "auto",
+    endpoint: `https://${env.accountId}.r2.cloudflarestorage.com`,
+    credentials: {
+      accessKeyId: env.accessKeyId!,
+      secretAccessKey: env.secretAccessKey!,
+    },
+  };
+
+  cachedClient = new S3Client(config);
+  return cachedClient;
+}
+
+export function getCatalogObjectKey() {
+  return env.catalogKey;
+}
+
+export async function uploadPdfObject(key: string, bytes: Uint8Array, filename: string) {
+  const client = getClient();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: env.bucket,
+      Key: key,
+      Body: bytes,
+      ContentType: "application/pdf",
+      ContentDisposition: `inline; filename="${filename}"`,
+    }),
+  );
+}
+
+export async function putTextObject(key: string, body: string, contentType = "application/json") {
+  const client = getClient();
+  await client.send(
+    new PutObjectCommand({
+      Bucket: env.bucket,
+      Key: key,
+      Body: body,
+      ContentType: contentType,
+    }),
+  );
+}
+
+export async function getTextObject(key: string) {
+  const client = getClient();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: env.bucket,
+      Key: key,
+    }),
+  );
+
+  if (!response.Body) {
+    throw new Error(`Missing body for object ${key}`);
+  }
+
+  return response.Body.transformToString();
+}
+
+export async function getBinaryObject(key: string) {
+  const client = getClient();
+  const response = await client.send(
+    new GetObjectCommand({
+      Bucket: env.bucket,
+      Key: key,
+    }),
+  );
+
+  if (!response.Body) {
+    throw new Error(`Missing body for object ${key}`);
+  }
+
+  const bytes = await response.Body.transformToByteArray();
+
+  return {
+    bytes,
+    contentType: response.ContentType || "application/octet-stream",
+  };
+}
