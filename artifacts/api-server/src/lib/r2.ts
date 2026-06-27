@@ -19,6 +19,19 @@ export function isR2Configured() {
   return Boolean(env.accountId && env.accessKeyId && env.secretAccessKey && env.bucket);
 }
 
+function contentDispositionFilename(filename: string) {
+  const asciiFallback = filename
+    .replace(/[/\\]/g, "-")
+    .replace(/[^\x20-\x7e]/g, "_")
+    .replace(/[";]/g, "_")
+    .trim() || "chapter.pdf";
+  const encoded = encodeURIComponent(filename).replace(/['()]/g, (character) =>
+    `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+
+  return `inline; filename="${asciiFallback}"; filename*=UTF-8''${encoded}`;
+}
+
 function getClient() {
   if (!isR2Configured()) {
     throw new Error("Cloudflare R2 is not configured.");
@@ -53,7 +66,7 @@ export async function uploadPdfObject(key: string, bytes: Uint8Array, filename: 
       Key: key,
       Body: bytes,
       ContentType: "application/pdf",
-      ContentDisposition: `inline; filename="${filename}"`,
+      ContentDisposition: contentDispositionFilename(filename),
     }),
   );
 }
