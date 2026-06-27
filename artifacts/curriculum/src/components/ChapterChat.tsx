@@ -6,6 +6,8 @@ type ChatMessage = {
   content: string;
 };
 
+type Provider = "chat2pdf" | "chatpdf";
+
 export function ChapterChat({
   chapterId,
   chapterTitle,
@@ -15,12 +17,14 @@ export function ChapterChat({
   chapterTitle: string;
   bookTitle?: string;
 }) {
-  const [apiKey, setApiKey] = useState("");
+  const [provider, setProvider] = useState<Provider>("chat2pdf");
+  const [chat2pdfAvailable, setChat2pdfAvailable] = useState<boolean | null>(null);
+  const [chatpdfKey, setChatpdfKey] = useState("");
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
-      content: `Ask anything about "${chapterTitle}". I will create a ChatPDF source from this chapter when you send your first question.`,
+      content: `Ask anything about "${chapterTitle}". I'll prepare this chapter for chat when you send your first question.`,
     },
   ]);
   const [sourceId, setSourceId] = useState("");
@@ -29,10 +33,28 @@ export function ChapterChat({
 
   useEffect(() => {
     const savedKey = window.localStorage.getItem("chatpdf-api-key") || "";
-    setApiKey(savedKey);
+    setChatpdfKey(savedKey);
+
+    fetch("/api/chat2pdf/status")
+      .then((r) => r.json())
+      .then((data: { configured?: boolean }) => {
+        const available = Boolean(data.configured);
+        setChat2pdfAvailable(available);
+        if (!available) setProvider("chatpdf");
+      })
+      .catch(() => {
+        setChat2pdfAvailable(false);
+        setProvider("chatpdf");
+      });
   }, []);
 
-  const canSend = useMemo(() => Boolean(apiKey.trim() && draft.trim() && !pending), [apiKey, draft, pending]);
+  const apiKey = provider === "chatpdf" ? chatpdfKey : "";
+  const canSend = useMemo(() => {
+    if (pending) return false;
+    if (!draft.trim()) return false;
+    if (provider === "chatpdf" && !chatpdfKey.trim()) return false;
+    return true;
+  }, [pending, draft, provider, chatpdfKey]);
 
   function saveFen(fen: string, sourceMessage: string) {
     try {
@@ -62,15 +84,19 @@ export function ChapterChat({
     }
   }
 
-  async function ensureSource() {
-    if (sourceId) {
-      return sourceId;
-    }
+  async function ensureSource(currentSourceId: string) {
+    if (currentSourceId) return currentSourceId;
 
-    const response = await fetch("/api/chatpdf/source", {
+    const endpoint = provider === "chat2pdf" ? "/api/chat2pdf/source" : "/api/chatpdf/source";
+    const body =
+      provider === "chat2pdf"
+        ? { chapterId }
+        : { apiKey, chapterId };
+
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey, chapterId }),
+      body: JSON.stringify(body),
     });
 
     const payload = (await response.json()) as { sourceId?: string; error?: string };
@@ -91,24 +117,29 @@ export function ChapterChat({
     setMessages(nextMessages);
     setDraft("");
     setPending(true);
-    setStatus("Thinking...");
+    setStatus("Preparing chapter…");
 
     try {
-      const activeSourceId = await ensureSource();
-      const response = await fetch("/api/chatpdf/message", {
+      const activeSourceId = await ensureSource(sourceId);
+
+      setStatus("Thinking…");
+
+      const endpoint = provider === "chat2pdf" ? "/api/chat2pdf/message" : "/api/chatpdf/message";
+      const body =
+        provider === "chat2pdf"
+          ? { sourceId: activeSourceId, messages: [{ role: "user", content: question }] }
+          : { apiKey, sourceId: activeSourceId, messages: [{ role: "user", content: question }] };
+
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          apiKey,
-          sourceId: activeSourceId,
-          messages: [{ role: "user", content: question }],
-        }),
+        body: JSON.stringify(body),
       });
 
       const payload = (await response.json()) as { content?: string; error?: string };
 
       if (!response.ok || !payload.content) {
-        throw new Error(payload.error || "ChatPDF did not return an answer.");
+        throw new Error(payload.error || "The provider did not return an answer.");
       }
 
       setMessages((current) => [...current, { role: "assistant", content: payload.content! }]);
@@ -118,7 +149,7 @@ export function ChapterChat({
         ...current,
         {
           role: "assistant",
-          content: error instanceof Error ? error.message : "Something went wrong while contacting ChatPDF.",
+          content: error instanceof Error ? error.message : "Something went wrong.",
         },
       ]);
       setStatus("Chat failed.");
@@ -127,28 +158,80 @@ export function ChapterChat({
     }
   }
 
+  function handleProviderChange(next: Provider) {
+    setProvider(next);
+    setSourceId("");
+    setMessages([
+      {
+        role: "assistant",
+        content: `Ask anything about "${chapterTitle}". I'll prepare this chapter for chat when you send your first question.`,
+      },
+    ]);
+    setStatus("");
+  }
+
   return (
     <section className="flex h-full min-h-[36rem] flex-col rounded-[2rem] border border-stone-200 bg-white shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
       <div className="border-b border-stone-200 px-6 py-5">
         <h2 className="text-lg font-semibold tracking-tight">Talk to this chapter</h2>
-        <p className="mt-1 text-sm text-stone-500">Paste a ChatPDF API key once and it is saved locally in this browser.</p>
+        <p className="mt-1 text-sm text-stone-500">Ask questions, get summaries, or test yourself on the material.</p>
       </div>
 
-      <div className="border-b border-stone-200 px-6 py-4">
-        <label className="grid gap-2 text-sm font-medium">
-          ChatPDF API key
-          <input
-            className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
-            value={apiKey}
-            onChange={(event) => {
-              const value = event.target.value;
-              setApiKey(value);
-              window.localStorage.setItem("chatpdf-api-key", value);
-            }}
-            placeholder="x-api-key from ChatPDF"
-          />
-        </label>
-      </div>
+      {chat2pdfAvailable !== null && (
+        <div className="border-b border-stone-200 px-6 py-4">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">Provider</p>
+          <div className="flex gap-2">
+            {chat2pdfAvailable && (
+              <button
+                type="button"
+                onClick={() => handleProviderChange("chat2pdf")}
+                className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                  provider === "chat2pdf"
+                    ? "border-stone-900 bg-stone-900 text-amber-50"
+                    : "border-stone-300 text-stone-600 hover:border-stone-400"
+                }`}
+              >
+                Chat2PDF
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => handleProviderChange("chatpdf")}
+              className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${
+                provider === "chatpdf"
+                  ? "border-stone-900 bg-stone-900 text-amber-50"
+                  : "border-stone-300 text-stone-600 hover:border-stone-400"
+              }`}
+            >
+              ChatPDF
+            </button>
+          </div>
+        </div>
+      )}
+
+      {provider === "chatpdf" && (
+        <div className="border-b border-stone-200 px-6 py-4">
+          <label className="grid gap-2 text-sm font-medium">
+            ChatPDF API key
+            <input
+              className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
+              value={chatpdfKey}
+              onChange={(event) => {
+                const value = event.target.value;
+                setChatpdfKey(value);
+                window.localStorage.setItem("chatpdf-api-key", value);
+              }}
+              placeholder="x-api-key from chatpdf.com"
+            />
+          </label>
+        </div>
+      )}
+
+      {provider === "chat2pdf" && (
+        <div className="border-b border-stone-200 px-6 py-3">
+          <p className="text-xs text-stone-400">Using Chat2PDF — no API key required.</p>
+        </div>
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
         {messages.map((message, index) => {
@@ -197,6 +280,11 @@ export function ChapterChat({
             className="rounded-[1.5rem] border border-stone-300 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-stone-500 focus:bg-white"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+                sendMessage();
+              }
+            }}
             placeholder="Ask for a summary, test yourself on motifs, or ask for practical plans."
           />
           <div className="flex items-center justify-between gap-4">
@@ -207,7 +295,7 @@ export function ChapterChat({
               disabled={!canSend}
               className="rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-amber-50 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {pending ? "Sending..." : "Ask chapter"}
+              {pending ? "Sending…" : "Ask chapter"}
             </button>
           </div>
         </div>
