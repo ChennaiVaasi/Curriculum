@@ -1,0 +1,42 @@
+import { Switch, Route, Router as WouterRouter } from "wouter";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { SiteShell } from "@/components/SiteShell";
+import HomePage from "@/pages/HomePage";
+import LibraryPage from "@/pages/LibraryPage";
+import BookPage from "@/pages/BookPage";
+import ChapterPage from "@/pages/ChapterPage";
+import NotebookPage from "@/pages/NotebookPage";
+import SettingsPage from "@/pages/SettingsPage";
+import UploadPage from "@/pages/UploadPage";
+import NotFound from "@/pages/not-found";
+
+const queryClient = new QueryClient();
+
+function Router() {
+  return (
+    <SiteShell>
+      <Switch>
+        <Route path="/" component={HomePage} />
+        <Route path="/library" component={LibraryPage} />
+        <Route path="/books/:bookId" component={BookPage} />
+        <Route path="/chapters/:chapterId" component={ChapterPage} />
+        <Route path="/notebook" component={NotebookPage} />
+        <Route path="/settings" component={SettingsPage} />
+        <Route path="/upload" component={UploadPage} />
+        <Route component={NotFound} />
+      </Switch>
+    </SiteShell>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+        <Router />
+      </WouterRouter>
+    </QueryClientProvider>
+  );
+}
+
+export default App;

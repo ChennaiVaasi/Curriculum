@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Curriculum"
+version = "1.0.0"
+id = "artifacts/curriculum"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18711
+
+[services.development]
+run = "pnpm --filter @workspace/curriculum run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/curriculum", "run", "build" ]
+publicDir = "artifacts/curriculum/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18711"
+BASE_PATH = "/"

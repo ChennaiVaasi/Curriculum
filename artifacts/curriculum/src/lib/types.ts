@@ -1,0 +1,32 @@
+export type Catalog = {
+  books: BookRecord[];
+  chapters: ChapterRecord[];
+};
+
+export type BookRecord = {
+  id: string;
+  title: string;
+  slug: string;
+  level: string;
+  theme: string;
+  primarySkill: string;
+  chapterCount: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ChapterRecord = {
+  id: string;
+  bookId: string;
+  title: string;
+  slug: string;
+  level: string;
+  theme: string;
+  primarySkill: string;
+  secondarySkills: string[];
+  notes: string;
+  objectKey: string;
+  originalFilename: string;
+  uploadedAt: string;
+  fileSize: number;
+};
