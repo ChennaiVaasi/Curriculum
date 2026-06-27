@@ -3,7 +3,7 @@ import multer from "multer";
 import { createAndStoreChapters } from "../lib/catalog.js";
 import { isR2Configured, uploadPdfObject } from "../lib/r2.js";
 import type { UploadPayload } from "../lib/types.js";
-import { makeId, slugify, splitCsv } from "../lib/utils.js";
+import { bookTitleFromFilename, makeId, slugify, splitCsv } from "../lib/utils.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -17,26 +17,23 @@ router.post("/upload", upload.array("files"), async (req, res) => {
     return;
   }
 
-  const payload: UploadPayload = {
-    bookTitle: String(req.body.bookTitle || "").trim(),
-    level: String(req.body.level || "").trim(),
-    theme: String(req.body.theme || "").trim(),
-    primarySkill: String(req.body.primarySkill || "").trim(),
-    secondarySkills: splitCsv(String(req.body.secondarySkills || "")),
-    notes: String(req.body.notes || "").trim(),
-  };
-
   const files = (req.files as Express.Multer.File[]) || [];
-
-  if (!payload.bookTitle || !payload.level || !payload.theme || !payload.primarySkill) {
-    res.status(400).json({ error: "Book title, level, theme, and primary skill are required." });
-    return;
-  }
 
   if (!files.length) {
     res.status(400).json({ error: "Upload at least one PDF file." });
     return;
   }
+
+  const derivedBookTitle = bookTitleFromFilename(files[0].originalname);
+
+  const payload: UploadPayload = {
+    bookTitle: String(req.body.bookTitle || "").trim() || derivedBookTitle,
+    level: String(req.body.level || "").trim() || "1400-1700",
+    theme: String(req.body.theme || "").trim() || "General",
+    primarySkill: String(req.body.primarySkill || "").trim() || "general",
+    secondarySkills: splitCsv(String(req.body.secondarySkills || "")),
+    notes: String(req.body.notes || "").trim(),
+  };
 
   const uploaded: Array<{ filename: string; objectKey: string; fileSize: number }> = [];
   const bookSlug = slugify(payload.bookTitle);

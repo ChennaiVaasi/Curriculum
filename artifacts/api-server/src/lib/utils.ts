@@ -27,7 +27,16 @@ export function humanBytes(value: number) {
 
 export function chapterTitleFromFilename(filename: string) {
   const withoutExtension = filename.replace(/\.[^.]+$/, "");
-  return normalizeText(withoutExtension.replace(/[_-]+/g, " "));
+  const parts = withoutExtension.split(/\s+[-–]\s+/);
+  const raw = parts.length >= 2 ? parts.slice(1).join(" - ") : parts[0];
+  return normalizeText(raw.replace(/[_]+/g, " "));
+}
+
+export function bookTitleFromFilename(filename: string) {
+  const withoutExtension = filename.replace(/\.[^.]+$/, "");
+  const parts = withoutExtension.split(/\s+[-–]\s+/);
+  const raw = parts.length >= 2 ? parts[0] : withoutExtension;
+  return normalizeText(raw.replace(/[_]+/g, " "));
 }
 
 export function makeId(prefix: string) {

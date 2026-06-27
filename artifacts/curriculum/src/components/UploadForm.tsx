@@ -1,11 +1,27 @@
 import { useState } from "react";
 
+const LEVELS = ["0-800", "800-1200", "1200-1400", "1400-1700", "1700-2000", "2000+"];
+
+function bookTitleFromFilename(filename: string): string {
+  const withoutExt = filename.replace(/\.[^.]+$/, "");
+  const parts = withoutExt.split(/\s+[-–]\s+/);
+  const raw = parts.length >= 2 ? parts[0] : withoutExt;
+  return raw.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
+function chapterTitleFromFilename(filename: string): string {
+  const withoutExt = filename.replace(/\.[^.]+$/, "");
+  const parts = withoutExt.split(/\s+[-–]\s+/);
+  const raw = parts.length >= 2 ? parts.slice(1).join(" - ") : parts[0];
+  return raw.replace(/[_]+/g, " ").replace(/\s+/g, " ").trim();
+}
+
 const defaults = {
   bookTitle: "",
   level: "1400-1700",
-  theme: "Middlegame planning",
-  primarySkill: "calculation",
-  secondarySkills: "pattern recognition, decision making",
+  theme: "",
+  primarySkill: "",
+  secondarySkills: "",
   notes: "",
 };
 
@@ -14,6 +30,19 @@ export function UploadForm() {
   const [files, setFiles] = useState<File[]>([]);
   const [status, setStatus] = useState<string>("");
   const [pending, setPending] = useState(false);
+
+  function handleFilesChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const selected = Array.from(event.target.files || []);
+    setFiles(selected);
+
+    if (selected.length > 0) {
+      const parsed = bookTitleFromFilename(selected[0].name);
+      setForm((current) => ({
+        ...current,
+        bookTitle: current.bookTitle || parsed,
+      }));
+    }
+  }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -50,7 +79,7 @@ export function UploadForm() {
         throw new Error(payload.error || "Upload failed.");
       }
 
-      setStatus(`Uploaded ${payload.uploaded} chapter file(s) for ${payload.bookTitle}.`);
+      setStatus(`Uploaded ${payload.uploaded} chapter file(s) for "${payload.bookTitle}".`);
       setFiles([]);
       setForm(defaults);
       const formElement = event.currentTarget;
@@ -62,17 +91,49 @@ export function UploadForm() {
     }
   }
 
+  const field = (key: keyof typeof form, value: string) =>
+    setForm((current) => ({ ...current, [key]: value }));
+
   return (
     <form onSubmit={handleSubmit} className="grid gap-6 rounded-[2rem] border border-stone-200 bg-white p-8 shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
+
+      <label className="grid gap-2 rounded-[1.5rem] border border-dashed border-stone-300 bg-stone-50 p-5 text-sm font-medium">
+        Chapter PDFs
+        <input
+          multiple
+          accept="application/pdf"
+          type="file"
+          onChange={handleFilesChange}
+        />
+        <span className="text-stone-500">
+          Name files as <code className="rounded bg-stone-200 px-1 py-0.5 text-xs">Book Title - Chapter Title.pdf</code> and everything fills in automatically.
+        </span>
+      </label>
+
+      {files.length > 0 && (
+        <div className="rounded-[1.5rem] border border-stone-200 bg-stone-50 px-5 py-4">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">
+            {files.length} file{files.length !== 1 ? "s" : ""} selected
+          </p>
+          <ul className="grid gap-1.5">
+            {files.map((file) => (
+              <li key={file.name} className="grid grid-cols-[1fr_auto] gap-4 rounded-xl bg-white px-4 py-2.5 text-sm">
+                <span className="truncate font-medium text-stone-800">{chapterTitleFromFilename(file.name)}</span>
+                <span className="whitespace-nowrap text-stone-400">{(file.size / 1024).toFixed(0)} KB</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
-        <label className="grid gap-2 text-sm font-medium">
+        <label className="grid gap-2 text-sm font-medium md:col-span-2">
           Book title
           <input
-            required
             className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
             value={form.bookTitle}
-            onChange={(event) => setForm((current) => ({ ...current, bookTitle: event.target.value }))}
-            placeholder="Dvoretsky Endgame Manual"
+            onChange={(e) => field("bookTitle", e.target.value)}
+            placeholder="Auto-detected from filename"
           />
         </label>
 
@@ -81,12 +142,10 @@ export function UploadForm() {
           <select
             className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
             value={form.level}
-            onChange={(event) => setForm((current) => ({ ...current, level: event.target.value }))}
+            onChange={(e) => field("level", e.target.value)}
           >
-            {["0-800", "800-1200", "1200-1400", "1400-1700", "1700-2000", "2000+"].map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
+            {LEVELS.map((option) => (
+              <option key={option} value={option}>{option}</option>
             ))}
           </select>
         </label>
@@ -94,72 +153,54 @@ export function UploadForm() {
         <label className="grid gap-2 text-sm font-medium">
           Theme
           <input
-            required
             className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
             value={form.theme}
-            onChange={(event) => setForm((current) => ({ ...current, theme: event.target.value }))}
-            placeholder="Endgame"
+            onChange={(e) => field("theme", e.target.value)}
+            placeholder="e.g. Endgame (optional)"
           />
         </label>
 
         <label className="grid gap-2 text-sm font-medium">
           Primary skill
           <input
-            required
             className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
             value={form.primarySkill}
-            onChange={(event) => setForm((current) => ({ ...current, primarySkill: event.target.value }))}
-            placeholder="calculation"
+            onChange={(e) => field("primarySkill", e.target.value)}
+            placeholder="e.g. calculation (optional)"
+          />
+        </label>
+
+        <label className="grid gap-2 text-sm font-medium">
+          Secondary skills
+          <input
+            className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
+            value={form.secondarySkills}
+            onChange={(e) => field("secondarySkills", e.target.value)}
+            placeholder="comma-separated (optional)"
           />
         </label>
       </div>
 
       <label className="grid gap-2 text-sm font-medium">
-        Secondary skills
-        <input
-          className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
-          value={form.secondarySkills}
-          onChange={(event) => setForm((current) => ({ ...current, secondarySkills: event.target.value }))}
-          placeholder="pattern recognition, technique"
-        />
-      </label>
-
-      <label className="grid gap-2 text-sm font-medium">
         Notes
         <textarea
-          rows={4}
+          rows={3}
           className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
           value={form.notes}
-          onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-          placeholder="Optional context that should travel with every uploaded chapter."
+          onChange={(e) => field("notes", e.target.value)}
+          placeholder="Optional context that travels with every chapter."
         />
-      </label>
-
-      <label className="grid gap-2 rounded-[1.5rem] border border-dashed border-stone-300 bg-stone-50 p-5 text-sm font-medium">
-        Chapter PDFs
-        <input
-          multiple
-          accept="application/pdf"
-          type="file"
-          onChange={(event) => setFiles(Array.from(event.target.files || []))}
-        />
-        <span className="text-stone-500">
-          Upload one or many chapter PDFs. When you upload multiple files, the app uses each filename as the chapter title.
-        </span>
-        {files.length > 0 ? (
-          <span className="text-stone-700">{files.length} file(s) selected</span>
-        ) : null}
       </label>
 
       <div className="flex flex-wrap items-center gap-4">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending || !files.length}
           className="rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-amber-50 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {pending ? "Uploading..." : "Upload to R2"}
         </button>
-        <span className="text-sm text-stone-600">{status}</span>
+        {status && <span className="text-sm text-stone-600">{status}</span>}
       </div>
     </form>
   );
