@@ -8,6 +8,28 @@ import { bookTitleFromFilename, makeId, slugify, splitCsv } from "../lib/utils.j
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+function hasPdfExtension(filename: string) {
+  return /\.pdf$/i.test(filename);
+}
+
+function hasPdfSignature(buffer: Buffer) {
+  return buffer.subarray(0, 5).toString("ascii") === "%PDF-";
+}
+
+function isPdfUpload(file: Express.Multer.File) {
+  return (
+    file.mimetype === "application/pdf" ||
+    (hasPdfExtension(file.originalname) && hasPdfSignature(file.buffer))
+  );
+}
+
+function safeObjectFilename(filename: string) {
+  return filename
+    .replace(/[/\\]/g, "-")
+    .replace(/[\u0000-\u001f\u007f]+/g, "")
+    .trim();
+}
+
 router.post("/upload", upload.array("files"), async (req, res) => {
   if (!isR2Configured()) {
     res.status(400).json({
@@ -40,14 +62,17 @@ router.post("/upload", upload.array("files"), async (req, res) => {
 
   try {
     for (const file of files) {
-      if (file.mimetype !== "application/pdf") {
+      if (!isPdfUpload(file)) {
         res.status(400).json({
-          error: `Only PDF uploads are supported. ${file.originalname} is not a PDF.`,
+          error: `Only PDF uploads are supported. ${file.originalname} was received as ${file.mimetype || "an unknown file type"}.`,
         });
         return;
       }
+    }
 
-      const objectKey = `chapters/${bookSlug}/${makeId("pdf")}-${file.originalname}`;
+    for (const file of files) {
+      const objectFilename = safeObjectFilename(file.originalname) || `${makeId("chapter")}.pdf`;
+      const objectKey = `chapters/${bookSlug}/${makeId("pdf")}-${objectFilename}`;
       await uploadPdfObject(objectKey, new Uint8Array(file.buffer), file.originalname);
       uploaded.push({
         filename: file.originalname,
