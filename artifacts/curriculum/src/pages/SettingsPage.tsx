@@ -14,7 +14,8 @@ export default function SettingsPage() {
 R2_ACCESS_KEY_ID=...
 R2_SECRET_ACCESS_KEY=...
 R2_BUCKET=...
-R2_CATALOG_KEY=catalog/catalog.json`}
+R2_CATALOG_KEY=catalog/catalog.json   # optional, default: catalog/catalog.json
+R2_PUBLIC_URL=https://...             # optional — your R2 public bucket URL`}
           </pre>
           <p>
             After adding the secrets, restart the server. Use the Upload page to add chapter PDFs.

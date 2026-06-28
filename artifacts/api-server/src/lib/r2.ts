@@ -11,6 +11,9 @@ const env = {
   secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
   bucket: process.env.R2_BUCKET,
   catalogKey: process.env.R2_CATALOG_KEY || "catalog/catalog.json",
+  publicUrl: process.env.R2_PUBLIC_URL
+    ? process.env.R2_PUBLIC_URL.replace(/\/$/, "")
+    : null,
 };
 
 let cachedClient: S3Client | null = null;
@@ -56,6 +59,10 @@ function getClient() {
 
 export function getCatalogObjectKey() {
   return env.catalogKey;
+}
+
+export function getPublicUrl() {
+  return env.publicUrl;
 }
 
 export async function uploadPdfObject(key: string, bytes: Uint8Array, filename: string) {
