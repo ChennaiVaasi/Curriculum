@@ -8,6 +8,7 @@ import chatpdfRouter from "./chatpdf.js";
 import chat2pdfRouter from "./chat2pdf.js";
 import r2statusRouter from "./r2status.js";
 import scanRouter from "./scan.js";
+import chessEyeRouter from "./chess-eye.js";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(chatpdfRouter);
 router.use(chat2pdfRouter);
 router.use(r2statusRouter);
 router.use(scanRouter);
+router.use(chessEyeRouter);
 
 export default router;

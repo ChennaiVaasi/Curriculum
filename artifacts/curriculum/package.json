@@ -75,6 +75,9 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "chess.js": "^1.4.0",
+    "pdfjs-dist": "^6.1.200",
+    "react-chessboard": "^5.10.0",
     "react-pdf": "^10.4.1"
   }
 }
