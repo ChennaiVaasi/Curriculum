@@ -6,13 +6,13 @@ import {
 } from "@aws-sdk/client-s3";
 
 const env = {
-  accountId: process.env.R2_ACCOUNT_ID,
-  accessKeyId: process.env.R2_ACCESS_KEY_ID,
-  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
-  bucket: process.env.R2_BUCKET,
-  catalogKey: process.env.R2_CATALOG_KEY || "catalog/catalog.json",
+  accountId: process.env.R2_ACCOUNT_ID?.trim(),
+  accessKeyId: process.env.R2_ACCESS_KEY_ID?.trim(),
+  secretAccessKey: process.env.R2_SECRET_ACCESS_KEY?.trim(),
+  bucket: process.env.R2_BUCKET?.trim(),
+  catalogKey: (process.env.R2_CATALOG_KEY?.trim()) || "catalog/catalog.json",
   publicUrl: process.env.R2_PUBLIC_URL
-    ? process.env.R2_PUBLIC_URL.replace(/\/$/, "")
+    ? process.env.R2_PUBLIC_URL.trim().replace(/\/$/, "")
     : null,
 };
 
