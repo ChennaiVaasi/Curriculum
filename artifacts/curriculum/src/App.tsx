@@ -6,7 +6,6 @@ import LibraryPage from "@/pages/LibraryPage";
 import BookPage from "@/pages/BookPage";
 import ChapterPage from "@/pages/ChapterPage";
 import NotebookPage from "@/pages/NotebookPage";
-import SettingsPage from "@/pages/SettingsPage";
 import UploadPage from "@/pages/UploadPage";
 import NotFound from "@/pages/not-found";
 
@@ -21,7 +20,6 @@ function Router() {
         <Route path="/books/:bookId" component={BookPage} />
         <Route path="/chapters/:chapterId" component={ChapterPage} />
         <Route path="/notebook" component={NotebookPage} />
-        <Route path="/settings" component={SettingsPage} />
         <Route path="/upload" component={UploadPage} />
         <Route component={NotFound} />
       </Switch>
