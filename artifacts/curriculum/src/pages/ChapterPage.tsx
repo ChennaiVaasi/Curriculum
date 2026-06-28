@@ -79,7 +79,13 @@ export default function ChapterPage() {
             <h2 className="text-lg font-semibold tracking-tight">Chapter reader</h2>
             <p className="mt-1 text-sm text-stone-500">The PDF streams from private R2 storage through the app.</p>
           </div>
-          <PdfViewer url={`/api/files/${chapter.id}`} title={chapter.title} />
+          <PdfViewer
+            url={`/api/files/${chapter.id}`}
+            title={chapter.title}
+            chapterId={chapter.id}
+            chapterTitle={chapter.title}
+            bookTitle={book?.title}
+          />
         </section>
       </div>
 

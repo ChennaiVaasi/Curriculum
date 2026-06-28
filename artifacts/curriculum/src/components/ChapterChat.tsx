@@ -30,6 +30,7 @@ export function ChapterChat({
   const [sourceId, setSourceId] = useState("");
   const [pending, setPending] = useState(false);
   const [status, setStatus] = useState("");
+  const [copiedFens, setCopiedFens] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     fetch("/api/chat2pdf/status")
@@ -57,6 +58,13 @@ export function ChapterChat({
     if (!draft.trim()) return false;
     return true;
   }, [pending, draft]);
+
+  function copyFen(fen: string) {
+    navigator.clipboard.writeText(fen).then(() => {
+      setCopiedFens((prev) => ({ ...prev, [fen]: true }));
+      setTimeout(() => setCopiedFens((prev) => ({ ...prev, [fen]: false })), 1500);
+    });
+  }
 
   function saveFen(fen: string, sourceMessage: string) {
     try {
@@ -90,12 +98,11 @@ export function ChapterChat({
     if (currentSourceId) return currentSourceId;
 
     const endpoint = provider === "chat2pdf" ? "/api/chat2pdf/source" : "/api/chatpdf/source";
-    const body = { chapterId };
 
     const response = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ chapterId }),
     });
 
     const payload = (await response.json()) as { sourceId?: string; error?: string };
@@ -124,10 +131,7 @@ export function ChapterChat({
       setStatus("Thinking…");
 
       const endpoint = provider === "chat2pdf" ? "/api/chat2pdf/message" : "/api/chatpdf/message";
-      const body =
-        provider === "chat2pdf"
-          ? { sourceId: activeSourceId, messages: [{ role: "user", content: question }] }
-          : { sourceId: activeSourceId, messages: [{ role: "user", content: question }] };
+      const body = { sourceId: activeSourceId, messages: [{ role: "user", content: question }] };
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -169,7 +173,9 @@ export function ChapterChat({
     setStatus("");
   }
 
-  const showProviderBar = chat2pdfAvailable !== null && chatpdfAvailable !== null &&
+  const showProviderBar =
+    chat2pdfAvailable !== null &&
+    chatpdfAvailable !== null &&
     (chat2pdfAvailable || chatpdfAvailable);
 
   return (
@@ -229,13 +235,20 @@ export function ChapterChat({
                 {message.content}
               </article>
 
-              {fens.length > 0 ? (
+              {fens.length > 0 && (
                 <div className="grid w-full max-w-[90%] gap-2 rounded-[1.25rem] border border-stone-200 bg-stone-50 p-3">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">Detected FENs</p>
                   {fens.map((fen) => (
                     <div key={fen} className="grid gap-2 rounded-[1rem] bg-white p-3">
                       <code className="overflow-x-auto text-xs leading-6 text-stone-700">{fen}</code>
-                      <div className="flex justify-end">
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => copyFen(fen)}
+                          className="rounded-full border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-700 transition hover:bg-stone-100"
+                        >
+                          {copiedFens[fen] ? "Copied!" : "Copy FEN"}
+                        </button>
                         <button
                           type="button"
                           onClick={() => saveFen(fen, message.content)}
@@ -247,7 +260,7 @@ export function ChapterChat({
                     </div>
                   ))}
                 </div>
-              ) : null}
+              )}
             </div>
           );
         })}
