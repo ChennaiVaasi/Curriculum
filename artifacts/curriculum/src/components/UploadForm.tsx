@@ -63,6 +63,7 @@ export function UploadForm() {
 
     setPending(true);
     setStatus("Uploading chapters to R2...");
+    const formElement = event.currentTarget;
 
     try {
       const body = new FormData();
@@ -92,7 +93,6 @@ export function UploadForm() {
       setStatus(`Uploaded ${payload.uploaded} chapter file(s) for "${payload.bookTitle}".`);
       setFiles([]);
       setForm(defaults);
-      const formElement = event.currentTarget;
       formElement.reset();
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Upload failed.");
