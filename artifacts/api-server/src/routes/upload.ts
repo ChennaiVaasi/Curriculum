@@ -55,6 +55,7 @@ router.post("/upload", upload.array("files"), async (req, res) => {
     primarySkill: String(req.body.primarySkill || "").trim() || "general",
     secondarySkills: splitCsv(String(req.body.secondarySkills || "")),
     notes: String(req.body.notes || "").trim(),
+    pgn: String(req.body.pgn || "").trim(),
   };
 
   const uploaded: Array<{ filename: string; objectKey: string; fileSize: number }> = [];

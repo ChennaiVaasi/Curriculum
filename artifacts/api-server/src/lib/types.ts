@@ -25,6 +25,7 @@ export type ChapterRecord = {
   primarySkill: string;
   secondarySkills: string[];
   notes: string;
+  pgn: string;
   objectKey: string;
   originalFilename: string;
   uploadedAt: string;
@@ -38,4 +39,5 @@ export type UploadPayload = {
   primarySkill: string;
   secondarySkills: string[];
   notes: string;
+  pgn: string;
 };

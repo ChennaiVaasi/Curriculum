@@ -96,6 +96,7 @@ export function createChapterRecord(
     primarySkill: normalizeText(payload.primarySkill),
     secondarySkills: payload.secondarySkills,
     notes: normalizeText(payload.notes),
+    pgn: payload.pgn,
     objectKey,
     originalFilename: filename,
     uploadedAt: now,

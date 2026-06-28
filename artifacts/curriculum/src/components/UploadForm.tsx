@@ -23,6 +23,7 @@ const defaults = {
   primarySkill: "",
   secondarySkills: "",
   notes: "",
+  pgn: "",
 };
 
 export function UploadForm() {
@@ -44,6 +45,14 @@ export function UploadForm() {
     }
   }
 
+  async function handlePgnFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const text = await file.text();
+    setForm((current) => ({ ...current, pgn: text }));
+    event.target.value = "";
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -63,6 +72,7 @@ export function UploadForm() {
       body.set("primarySkill", form.primarySkill);
       body.set("secondarySkills", form.secondarySkills);
       body.set("notes", form.notes);
+      body.set("pgn", form.pgn);
 
       for (const file of files) {
         body.append("files", file);
@@ -191,6 +201,40 @@ export function UploadForm() {
           placeholder="Optional context that travels with every chapter."
         />
       </label>
+
+      <div className="grid gap-3 rounded-[1.5rem] border border-stone-200 bg-stone-50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium">PGN</p>
+            <p className="mt-0.5 text-xs text-stone-500">Upload a .pgn file or paste PGN to attach it to every chapter in this upload.</p>
+          </div>
+          <label className="cursor-pointer rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100">
+            Upload .pgn
+            <input
+              type="file"
+              accept=".pgn,application/x-chess-pgn,text/plain"
+              className="sr-only"
+              onChange={handlePgnFileChange}
+            />
+          </label>
+        </div>
+        <textarea
+          rows={4}
+          className="rounded-[1.25rem] border border-stone-300 bg-white px-4 py-3 text-xs leading-6 outline-none transition focus:border-stone-500"
+          value={form.pgn}
+          onChange={(e) => field("pgn", e.target.value)}
+          placeholder={'Paste PGN here, e.g. [Event "Model game"] 1. e4 e5 ...'}
+        />
+        {form.pgn?.trim() && (
+          <button
+            type="button"
+            onClick={() => field("pgn", "")}
+            className="self-start rounded-full border border-stone-300 bg-white px-3 py-1.5 text-xs font-semibold text-stone-600 transition hover:bg-stone-100"
+          >
+            Clear PGN
+          </button>
+        )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-4">
         <button
