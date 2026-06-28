@@ -1,9 +1,21 @@
 import { Router } from "express";
-import { openai } from "@workspace/integrations-openai-ai-server";
+import OpenAI from "openai";
 
 const router = Router();
 
+function getClient(res: import("express").Response): OpenAI | null {
+  const key = process.env.OPENAI_API_KEY?.trim();
+  if (!key) {
+    res.status(503).json({ error: "OPENAI_API_KEY is not configured on this server." });
+    return null;
+  }
+  return new OpenAI({ apiKey: key });
+}
+
 router.post("/scan/positions", async (req, res) => {
+  const openai = getClient(res);
+  if (!openai) return;
+
   const { imageBase64 } = req.body as { imageBase64?: string };
 
   if (!imageBase64?.trim()) {
@@ -11,15 +23,10 @@ router.post("/scan/positions", async (req, res) => {
     return;
   }
 
-  if (!process.env.AI_INTEGRATIONS_OPENAI_BASE_URL) {
-    res.status(503).json({ error: "Vision scanner is not configured on this server." });
-    return;
-  }
-
   try {
     const response = await openai.chat.completions.create({
-      model: "gpt-5-mini",
-      max_completion_tokens: 2048,
+      model: "gpt-4o",
+      max_tokens: 2048,
       messages: [
         {
           role: "user",
