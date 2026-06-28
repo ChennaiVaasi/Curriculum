@@ -33,19 +33,35 @@ router.post("/scan/positions", async (req, res) => {
           content: [
             {
               type: "text",
-              text: `You are a chess position extractor. Look at this image and find all chess diagrams/boards.
+              text: `You are a precise chess diagram reader. Your task is to extract the exact board position from any chess diagram in this image and output a FEN string.
 
-For each chess position you find, output its FEN string on its own line, in this exact format:
-FEN: <fen string>
+STEP 1 — ORIENT THE BOARD
+Determine which side is at the bottom (White or Black). Chess diagrams usually have White at the bottom (rank 1 at bottom, rank 8 at top, file a on the left, file h on the right). Note if the board is flipped.
 
-Rules:
-- Output a FULL FEN with all 6 fields: piece placement, side to move, castling, en passant, halfmove clock, fullmove number.
-- If you cannot determine side to move, assume white (w).
-- If you cannot determine castling rights, use KQkq.
-- If you cannot determine en passant, use -.
-- If you cannot determine move counters, use 0 1.
-- If there are no chess diagrams in the image, output: NO_POSITIONS_FOUND
-- Do not output any other text, explanations, or commentary.`,
+STEP 2 — READ EACH RANK CAREFULLY
+Go rank by rank from rank 8 (top) down to rank 1 (bottom). For each rank, read each square from file a (left) to file h (right). Be extremely careful about which column each piece sits in — count the squares precisely.
+
+For each rank write a line like:
+Rank 8: r n b q k b n r
+Rank 7: p p p p p p p p
+... (use . for empty squares, lowercase for black pieces, uppercase for white)
+Piece letters: K/k=King, Q/q=Queen, R/r=Rook, B/b=Bishop, N/n=Knight, P/p=Pawn
+
+STEP 3 — VERIFY
+Count total white pieces and total black pieces. A starting position has 16 of each. Unusual counts are fine but recheck if something seems wrong.
+
+STEP 4 — OUTPUT FEN
+Convert your rank readings to FEN piece-placement notation (consecutive empty squares become a digit), then output:
+FEN: <piece_placement> <side_to_move> <castling> <en_passant> <halfmove> <fullmove>
+
+- side_to_move: w or b (use w if unclear)
+- castling: KQkq or subset, or - if none (use KQkq if unclear)
+- en_passant: target square like e3, or - (use - if unclear)
+- halfmove / fullmove: integers (use 0 1 if unclear)
+
+If there are NO chess diagrams in the image, output only: NO_POSITIONS_FOUND
+
+Output ONLY the rank readings and the FEN line(s). No other commentary.`,
             },
             {
               type: "image_url",
