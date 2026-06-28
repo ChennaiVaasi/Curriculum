@@ -8,6 +8,60 @@ type ChatMessage = {
 
 type Provider = "chat2pdf" | "chatpdf";
 
+type PgnTrace = {
+  gameTitles: string[];
+  gameCount: number;
+  setupPositionCount: number;
+};
+
+function parsePgnTagValue(game: string, tagName: string) {
+  const match = game.match(new RegExp(`^\\[${tagName}\\s+"((?:\\\\.|[^"\\\\])*)"\\]`, "m"));
+  return match?.[1]?.replace(/\\"/g, '"').replace(/\\\\/g, "\\").trim() || "";
+}
+
+function splitPgnGames(pgn: string) {
+  const normalized = pgn.replace(/\r\n?/g, "\n").trim();
+  if (!normalized) return [];
+
+  const headerStarts = [...normalized.matchAll(/^\[(?:Event|White)\s+"/gm)].map((match) => match.index || 0);
+  const gameStarts = headerStarts.filter((start, index) => index === 0 || normalized.slice(headerStarts[index - 1], start).trim().includes("\n\n"));
+
+  if (gameStarts.length > 0) {
+    return gameStarts.map((start, index) => normalized.slice(start, gameStarts[index + 1] ?? normalized.length).trim()).filter(Boolean);
+  }
+
+  return [normalized];
+}
+
+function getPgnGameTitle(game: string, fileName?: string) {
+  const event = parsePgnTagValue(game, "Event");
+  if (event && event !== "?") return event;
+
+  const white = parsePgnTagValue(game, "White");
+  const black = parsePgnTagValue(game, "Black");
+  if (white && black && white !== "?" && black !== "?") return `${white} vs ${black}`;
+
+  return fileName?.trim() || "Untitled PGN";
+}
+
+function parsePgnTrace(pgn: string, fileName?: string): PgnTrace {
+  const games = splitPgnGames(pgn);
+  const setupPositionCount = (pgn.match(/^\[FEN\s+"/gm) || []).length;
+
+  return {
+    gameTitles: games.map((game) => getPgnGameTitle(game, fileName)),
+    gameCount: games.length,
+    setupPositionCount,
+  };
+}
+
+function withPgnContext(question: string, pgn: string) {
+  const trimmedPgn = pgn.trim();
+  if (!trimmedPgn) return question;
+
+  return `${question}\n\nPGN context:\n${trimmedPgn}`;
+}
+
 export function ChapterChat({
   chapterId,
   chapterTitle,
@@ -21,6 +75,8 @@ export function ChapterChat({
   const [chat2pdfAvailable, setChat2pdfAvailable] = useState<boolean | null>(null);
   const [chatpdfKey, setChatpdfKey] = useState("");
   const [draft, setDraft] = useState("");
+  const [pgnContext, setPgnContext] = useState("");
+  const [pgnFileName, setPgnFileName] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -49,6 +105,7 @@ export function ChapterChat({
   }, []);
 
   const apiKey = provider === "chatpdf" ? chatpdfKey : "";
+  const pgnTrace = useMemo(() => parsePgnTrace(pgnContext, pgnFileName), [pgnContext, pgnFileName]);
   const canSend = useMemo(() => {
     if (pending) return false;
     if (!draft.trim()) return false;
@@ -112,8 +169,9 @@ export function ChapterChat({
   async function sendMessage() {
     if (!canSend) return;
 
-    const nextMessages = [...messages, { role: "user" as const, content: draft.trim() }];
     const question = draft.trim();
+    const messageContent = withPgnContext(question, pgnContext);
+    const nextMessages = [...messages, { role: "user" as const, content: question }];
     setMessages(nextMessages);
     setDraft("");
     setPending(true);
@@ -127,8 +185,8 @@ export function ChapterChat({
       const endpoint = provider === "chat2pdf" ? "/api/chat2pdf/message" : "/api/chatpdf/message";
       const body =
         provider === "chat2pdf"
-          ? { sourceId: activeSourceId, messages: [{ role: "user", content: question }] }
-          : { apiKey, sourceId: activeSourceId, messages: [{ role: "user", content: question }] };
+          ? { sourceId: activeSourceId, messages: [{ role: "user", content: messageContent }] }
+          : { apiKey, sourceId: activeSourceId, messages: [{ role: "user", content: messageContent }] };
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -275,6 +333,58 @@ export function ChapterChat({
 
       <div className="border-t border-stone-200 px-6 py-4">
         <div className="grid gap-3">
+          <div className="grid gap-3 rounded-[1.5rem] border border-stone-200 bg-stone-50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-stone-500">PGN context</p>
+                <p className="mt-1 text-xs text-stone-500">Upload a .pgn file or paste PGN to include it with your chapter question.</p>
+              </div>
+              <label className="cursor-pointer rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100">
+                Upload .pgn
+                <input
+                  type="file"
+                  accept=".pgn,application/x-chess-pgn,text/plain"
+                  className="sr-only"
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    if (!file) return;
+
+                    setPgnFileName(file.name);
+                    setPgnContext(await file.text());
+                    event.target.value = "";
+                  }}
+                />
+              </label>
+            </div>
+            <textarea
+              rows={3}
+              className="rounded-[1.25rem] border border-stone-300 bg-white px-4 py-3 text-xs leading-6 outline-none transition focus:border-stone-500"
+              value={pgnContext}
+              onChange={(event) => {
+                setPgnContext(event.target.value);
+                if (!event.target.value.trim()) setPgnFileName("");
+              }}
+              placeholder={'Paste PGN here, for example: [Event "Model game"] ...'}
+            />
+            <div className="rounded-[1.25rem] border border-stone-200 bg-white p-3 text-xs text-stone-600">
+              <div className="mb-2 flex flex-wrap gap-3 font-semibold text-stone-700">
+                <span>PGN Trace</span>
+                <span>{pgnTrace.gameCount} game{pgnTrace.gameCount === 1 ? "" : "s"}</span>
+                <span>{pgnTrace.setupPositionCount} setup position{pgnTrace.setupPositionCount === 1 ? "" : "s"}</span>
+              </div>
+              {pgnTrace.gameTitles.length > 0 ? (
+                <ol className="list-decimal space-y-1 pl-4">
+                  {pgnTrace.gameTitles.map((title, index) => (
+                    <li key={`${title}-${index}`} className="truncate">
+                      {title}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <p className="text-stone-400">No PGN detected yet.</p>
+              )}
+            </div>
+          </div>
           <textarea
             rows={4}
             className="rounded-[1.5rem] border border-stone-300 bg-stone-50 px-4 py-3 text-sm outline-none transition focus:border-stone-500 focus:bg-white"
