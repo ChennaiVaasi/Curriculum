@@ -4,11 +4,27 @@ import { getBinaryObject } from "../lib/r2.js";
 
 const router = Router();
 
-router.post("/chatpdf/source", async (req, res) => {
-  const { apiKey, chapterId } = req.body as { apiKey?: string; chapterId?: string };
+function getApiKey(res: import("express").Response): string | null {
+  const key = process.env.CHATPDF_API_KEY?.trim();
+  if (!key) {
+    res.status(503).json({ error: "ChatPDF is not configured on this server." });
+    return null;
+  }
+  return key;
+}
 
-  if (!apiKey?.trim() || !chapterId?.trim()) {
-    res.status(400).json({ error: "apiKey and chapterId are required." });
+router.get("/chatpdf/status", (_req, res) => {
+  res.json({ configured: Boolean(process.env.CHATPDF_API_KEY?.trim()) });
+});
+
+router.post("/chatpdf/source", async (req, res) => {
+  const apiKey = getApiKey(res);
+  if (!apiKey) return;
+
+  const { chapterId } = req.body as { chapterId?: string };
+
+  if (!chapterId?.trim()) {
+    res.status(400).json({ error: "chapterId is required." });
     return;
   }
 
@@ -35,7 +51,7 @@ router.post("/chatpdf/source", async (req, res) => {
 
     const response = await fetch("https://api.chatpdf.com/v1/sources/add-file", {
       method: "POST",
-      headers: { "x-api-key": apiKey.trim() },
+      headers: { "x-api-key": apiKey },
       body: formData,
     });
 
@@ -56,15 +72,17 @@ router.post("/chatpdf/source", async (req, res) => {
 });
 
 router.post("/chatpdf/message", async (req, res) => {
-  const { apiKey, sourceId, messages } = req.body as {
-    apiKey?: string;
+  const apiKey = getApiKey(res);
+  if (!apiKey) return;
+
+  const { sourceId, messages } = req.body as {
     sourceId?: string;
     messages?: Array<{ role: "user" | "assistant"; content: string }>;
   };
 
-  if (!apiKey?.trim() || !sourceId?.trim() || !messages?.length) {
+  if (!sourceId?.trim() || !messages?.length) {
     res.status(400).json({
-      error: "apiKey, sourceId, and at least one message are required.",
+      error: "sourceId and at least one message are required.",
     });
     return;
   }
@@ -74,7 +92,7 @@ router.post("/chatpdf/message", async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-api-key": apiKey.trim(),
+        "x-api-key": apiKey,
       },
       body: JSON.stringify({ sourceId: sourceId.trim(), messages }),
     });
