@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { BookRecord, ChapterRecord } from "@/lib/types";
 import { humanBytes } from "@/lib/utils";
 import { ChapterChat } from "@/components/ChapterChat";
+import { PdfViewer } from "@/components/PdfViewer";
 
 type ChapterResult = {
   chapter: ChapterRecord;
@@ -78,7 +79,7 @@ export default function ChapterPage() {
             <h2 className="text-lg font-semibold tracking-tight">Chapter reader</h2>
             <p className="mt-1 text-sm text-stone-500">The PDF streams from private R2 storage through the app.</p>
           </div>
-          <iframe title={chapter.title} src={`/api/files/${chapter.id}`} className="h-[70vh] w-full bg-stone-100" />
+          <PdfViewer url={`/api/files/${chapter.id}`} title={chapter.title} />
         </section>
       </div>
 
