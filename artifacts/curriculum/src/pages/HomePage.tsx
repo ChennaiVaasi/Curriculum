@@ -28,7 +28,7 @@ export default function HomePage() {
             Chess chapter browser
           </span>
           <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-            Upload chapter PDFs to R2, browse them by level and theme, and talk to one chapter at a time.
+            Upload chapter PDFs, browse them by level and theme, and talk to one chapter at a time.
           </h1>
           <p className="max-w-2xl text-base leading-8 text-amber-50/75">
             This workspace is built for your split chess curriculum. Each chapter becomes a searchable study object with metadata,
@@ -56,7 +56,7 @@ export default function HomePage() {
             </div>
           ))}
           <div className="rounded-[1.5rem] border border-dashed border-white/15 p-4 text-sm leading-7 text-amber-50/70">
-            ChatPDF keys are entered inside the app and stay in the browser. R2 credentials stay server-side through environment variables.
+            ChatPDF keys are entered inside the app and stay in your browser. PDFs are served securely through the app.
           </div>
         </div>
       </section>
@@ -75,7 +75,7 @@ export default function HomePage() {
 
           {!loading && recentChapters.length === 0 ? (
             <div className="mt-8 rounded-[1.5rem] border border-dashed border-stone-300 bg-stone-50 p-6 text-sm leading-7 text-stone-600">
-              No chapters yet. Go to Upload, connect your R2 bucket with the environment variables, and start uploading your split PDFs.
+              No chapters yet. Go to Upload and start uploading your split PDFs.
             </div>
           ) : (
             <div className="mt-6 grid gap-3">
@@ -104,7 +104,7 @@ export default function HomePage() {
             <ol className="mt-4 grid gap-3 text-sm leading-7 text-stone-600">
               <li>1. Pick a book title and shared metadata like level, theme, and primary skill.</li>
               <li>2. Drop one or many split chapter PDFs into the uploader.</li>
-              <li>3. The app writes the PDFs to your R2 bucket and updates the chapter catalog.</li>
+              <li>3. The app stores the PDFs and updates the chapter catalog.</li>
               <li>4. Each chapter becomes readable and chat-ready from the library.</li>
             </ol>
           </article>

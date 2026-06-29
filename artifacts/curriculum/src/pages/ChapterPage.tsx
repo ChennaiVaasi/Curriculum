@@ -77,7 +77,7 @@ export default function ChapterPage() {
         <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
           <div className="border-b border-stone-200 px-6 py-5">
             <h2 className="text-lg font-semibold tracking-tight">Chapter reader</h2>
-            <p className="mt-1 text-sm text-stone-500">The PDF streams from private R2 storage through the app.</p>
+            <p className="mt-1 text-sm text-stone-500">PDFs are served securely through the app.</p>
           </div>
           <PdfViewer
             url={`/api/files/${chapter.id}`}

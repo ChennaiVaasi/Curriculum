@@ -62,7 +62,7 @@ export function UploadForm() {
     }
 
     setPending(true);
-    setStatus("Uploading chapters to R2...");
+    setStatus("Uploading...");
     const formElement = event.currentTarget;
 
     try {
@@ -244,7 +244,7 @@ export function UploadForm() {
           disabled={pending || !files.length}
           className="rounded-full bg-stone-900 px-5 py-3 text-sm font-semibold text-amber-50 transition hover:bg-stone-700 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {pending ? "Uploading..." : "Upload to R2"}
+          {pending ? "Uploading..." : "Upload"}
         </button>
         {status && <span className="text-sm text-stone-600">{status}</span>}
       </div>
