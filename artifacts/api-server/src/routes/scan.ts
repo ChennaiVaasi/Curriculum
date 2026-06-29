@@ -91,7 +91,6 @@ router.post("/scan/positions", async (req, res) => {
     const response = await openai.chat.completions.create({
       model: "gpt-5-mini",
       max_completion_tokens: 2048,
-      response_format: { type: "json_object" },
       messages: [
         {
           role: "user",
@@ -110,10 +109,27 @@ router.post("/scan/positions", async (req, res) => {
     });
 
     const text = response.choices[0]?.message?.content ?? "";
-    const parsed = JSON.parse(text) as { positions?: Array<{ fen: string }> };
-    const fens = (parsed.positions ?? [])
-      .map((p) => p.fen?.trim())
-      .filter((f): f is string => !!f && isValidFen(f));
+
+    // Parse JSON from response — strip markdown fences if present
+    const cleaned = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
+    let fens: string[] = [];
+    try {
+      const first = cleaned.indexOf("{");
+      const last = cleaned.lastIndexOf("}");
+      if (first >= 0 && last > first) {
+        const parsed = JSON.parse(cleaned.slice(first, last + 1)) as { positions?: Array<{ fen?: string }> };
+        fens = (parsed.positions ?? [])
+          .map((p) => p.fen?.trim() ?? "")
+          .filter((f) => f && isValidFen(f));
+      }
+    } catch {
+      // fallback: extract any FEN-like strings from the text
+      fens = text
+        .split(/\s+/)
+        .filter((token) => /^[prnbqkPRNBQK1-8]{2,}\//.test(token))
+        .map((token) => token.replace(/,$/, "").replace(/"$/, ""))
+        .filter(isValidFen);
+    }
 
     res.json({ fens });
   } catch (err) {
