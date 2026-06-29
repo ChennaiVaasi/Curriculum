@@ -50,20 +50,20 @@ export function PdfViewer({ url, title, chapterId, chapterTitle, bookTitle }: Pr
     try {
       const imageBase64 = canvas.toDataURL("image/png").replace(/^data:image\/png;base64,/, "");
 
-      const response = await fetch("/api/scan/positions", {
+      const response = await fetch("/api/chess-eye/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64 }),
+        body: JSON.stringify({ imageBase64, mimeType: "image/png", pageNumber: page }),
       });
 
-      const payload = (await response.json()) as { fens?: string[]; error?: string };
+      const payload = (await response.json()) as { positions?: Array<{ fen: string }>; error?: string };
 
       if (!response.ok) {
         setScanStatus(payload.error ?? "Scan failed.");
         return;
       }
 
-      const fens = payload.fens ?? [];
+      const fens = (payload.positions ?? []).map((p) => p.fen).filter(Boolean);
       if (fens.length === 0) {
         setScanStatus("No chess positions found on this page.");
       } else {
