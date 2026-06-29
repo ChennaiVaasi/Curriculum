@@ -116,7 +116,9 @@ export function UploadForm() {
           onChange={handleFilesChange}
         />
         <span className="text-stone-500">
-          Name files as <code className="rounded bg-stone-200 px-1 py-0.5 text-xs">Book Title - Chapter Title.pdf</code> and everything fills in automatically.
+          Each file becomes its own chapter. Name files as{" "}
+          <code className="rounded bg-stone-200 px-1 py-0.5 text-xs">Book Title - Chapter Title.pdf</code>{" "}
+          and the book is detected per file automatically.
         </span>
       </label>
 
@@ -138,12 +140,12 @@ export function UploadForm() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <label className="grid gap-2 text-sm font-medium md:col-span-2">
-          Book title
+          Book title override <span className="font-normal text-stone-400">(optional — leave blank to detect per file)</span>
           <input
             className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
             value={form.bookTitle}
             onChange={(e) => field("bookTitle", e.target.value)}
-            placeholder="Auto-detected from filename"
+            placeholder="Leave blank to use each file's own book name"
           />
         </label>
 

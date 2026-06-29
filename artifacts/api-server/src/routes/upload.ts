@@ -46,10 +46,8 @@ router.post("/upload", upload.array("files"), async (req, res) => {
     return;
   }
 
-  const derivedBookTitle = bookTitleFromFilename(files[0].originalname);
-
-  const payload: UploadPayload = {
-    bookTitle: String(req.body.bookTitle || "").trim() || derivedBookTitle,
+  const globalBookTitleOverride = String(req.body.bookTitle || "").trim();
+  const basePayload: Omit<UploadPayload, "bookTitle"> = {
     level: String(req.body.level || "").trim() || "1400-1700",
     theme: String(req.body.theme || "").trim() || "General",
     primarySkill: String(req.body.primarySkill || "").trim() || "general",
@@ -57,9 +55,6 @@ router.post("/upload", upload.array("files"), async (req, res) => {
     notes: String(req.body.notes || "").trim(),
     pgn: String(req.body.pgn || "").trim(),
   };
-
-  const uploaded: Array<{ filename: string; objectKey: string; fileSize: number }> = [];
-  const bookSlug = slugify(payload.bookTitle);
 
   try {
     for (const file of files) {
@@ -71,22 +66,58 @@ router.post("/upload", upload.array("files"), async (req, res) => {
       }
     }
 
+    // Upload all files to R2 first, tagging each with its derived book title
+    const uploaded: Array<{
+      filename: string;
+      objectKey: string;
+      fileSize: number;
+      derivedBookTitle: string;
+    }> = [];
+
     for (const file of files) {
-      const objectFilename = safeObjectFilename(file.originalname) || `${makeId("chapter")}.pdf`;
+      const derivedBookTitle =
+        globalBookTitleOverride || bookTitleFromFilename(file.originalname);
+      const bookSlug = slugify(derivedBookTitle);
+      const objectFilename =
+        safeObjectFilename(file.originalname) || `${makeId("chapter")}.pdf`;
       const objectKey = `chapters/${bookSlug}/${makeId("pdf")}-${objectFilename}`;
       await uploadPdfObject(objectKey, new Uint8Array(file.buffer), file.originalname);
       uploaded.push({
         filename: file.originalname,
         objectKey,
         fileSize: file.size,
+        derivedBookTitle,
       });
     }
 
-    const result = await createAndStoreChapters(payload, uploaded);
+    // Group uploaded files by their book title so each group lands in the right book
+    const groups = new Map<string, typeof uploaded>();
+    for (const entry of uploaded) {
+      const key = entry.derivedBookTitle;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(entry);
+    }
+
+    let totalChapters = 0;
+    const bookTitles: string[] = [];
+
+    for (const [bookTitle, groupFiles] of groups) {
+      const payload: UploadPayload = { ...basePayload, bookTitle };
+      const result = await createAndStoreChapters(
+        payload,
+        groupFiles.map(({ filename, objectKey, fileSize }) => ({
+          filename,
+          objectKey,
+          fileSize,
+        })),
+      );
+      totalChapters += result.records.length;
+      bookTitles.push(result.book.title);
+    }
 
     res.json({
-      uploaded: result.records.length,
-      bookTitle: result.book.title,
+      uploaded: totalChapters,
+      bookTitle: bookTitles.join(", "),
     });
   } catch (err) {
     req.log.error({ err }, "Upload failed");
