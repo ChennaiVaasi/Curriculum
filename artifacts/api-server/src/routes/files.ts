@@ -19,10 +19,13 @@ router.get("/files/:chapterId", async (req, res) => {
       file.bytes.byteOffset + file.bytes.byteLength,
     ) as ArrayBuffer;
 
+    const isDownload = req.query.download === "1";
+    const disposition = isDownload ? "attachment" : "inline";
+
     res.setHeader("Content-Type", file.contentType);
     res.setHeader(
       "Content-Disposition",
-      `inline; filename="${result.chapter.originalFilename}"`,
+      `${disposition}; filename="${result.chapter.originalFilename}"`,
     );
     res.setHeader("Cache-Control", "private, max-age=300");
     res.send(Buffer.from(arrayBuffer));

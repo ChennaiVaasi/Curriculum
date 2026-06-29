@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import { getCatalogObjectKey, getTextObject, isR2Configured, putTextObject } from "./r2.js";
+import { deleteObject, getCatalogObjectKey, getTextObject, isR2Configured, putTextObject } from "./r2.js";
 import type { BookRecord, Catalog, ChapterRecord, UploadPayload } from "./types.js";
 import { chapterTitleFromFilename, makeId, normalizeText, slugify } from "./utils.js";
 
@@ -138,6 +138,32 @@ export async function getBookById(bookId: string) {
     .sort((left, right) => left.uploadedAt.localeCompare(right.uploadedAt));
 
   return { book, chapters };
+}
+
+export async function deleteChapter(chapterId: string) {
+  const catalog = await getCatalog();
+  const chapter = catalog.chapters.find((entry) => entry.id === chapterId);
+  if (!chapter) {
+    return null;
+  }
+
+  if (isR2Configured()) {
+    try {
+      await deleteObject(chapter.objectKey);
+    } catch {
+    }
+  }
+
+  catalog.chapters = catalog.chapters.filter((entry) => entry.id !== chapterId);
+
+  for (const book of catalog.books) {
+    book.chapterCount = catalog.chapters.filter((entry) => entry.bookId === book.id).length;
+  }
+
+  catalog.books = catalog.books.filter((book) => book.chapterCount > 0);
+
+  await saveCatalog(catalog);
+  return chapter;
 }
 
 export async function getChapterById(chapterId: string) {

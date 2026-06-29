@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -104,6 +105,16 @@ export async function getTextObject(key: string) {
   }
 
   return response.Body.transformToString();
+}
+
+export async function deleteObject(key: string) {
+  const client = getClient();
+  await client.send(
+    new DeleteObjectCommand({
+      Bucket: env.bucket,
+      Key: key,
+    }),
+  );
 }
 
 export async function getBinaryObject(key: string) {

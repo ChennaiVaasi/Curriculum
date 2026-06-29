@@ -33,8 +33,14 @@ export function UploadForm() {
   const [pending, setPending] = useState(false);
 
   function handleFilesChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = Array.from(event.target.files || []);
-    setFiles(selected);
+    const selected = Array.from(event.target.files || []).filter((f) =>
+      f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+    );
+    setFiles((prev) => {
+      const names = new Set(prev.map((f) => f.name));
+      const next = [...prev, ...selected.filter((f) => !names.has(f.name))];
+      return next;
+    });
 
     if (selected.length > 0) {
       const parsed = bookTitleFromFilename(selected[0].name);
@@ -107,31 +113,64 @@ export function UploadForm() {
   return (
     <form onSubmit={handleSubmit} className="grid gap-6 rounded-[2rem] border border-stone-200 bg-white p-8 shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
 
-      <label className="grid gap-2 rounded-[1.5rem] border border-dashed border-stone-300 bg-stone-50 p-5 text-sm font-medium">
-        Chapter PDFs
-        <input
-          multiple
-          accept="application/pdf"
-          type="file"
-          onChange={handleFilesChange}
-        />
-        <span className="text-stone-500">
-          Each file becomes its own chapter. Name files as{" "}
-          <code className="rounded bg-stone-200 px-1 py-0.5 text-xs">Book Title - Chapter Title.pdf</code>{" "}
-          and the book is detected per file automatically.
-        </span>
-      </label>
+      <div className="grid gap-3 rounded-[1.5rem] border border-dashed border-stone-300 bg-stone-50 p-5">
+        <p className="text-sm font-medium">Chapter PDFs</p>
+        <div className="flex flex-wrap gap-2">
+          <label className="cursor-pointer rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100">
+            Pick files
+            <input
+              multiple
+              accept="application/pdf"
+              type="file"
+              className="sr-only"
+              onChange={handleFilesChange}
+            />
+          </label>
+          <label className="cursor-pointer rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100">
+            Browse folder
+            <input
+              type="file"
+              className="sr-only"
+              /* @ts-expect-error webkitdirectory is non-standard */
+              webkitdirectory=""
+              onChange={handleFilesChange}
+            />
+          </label>
+          {files.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFiles([])}
+              className="rounded-full border border-stone-300 bg-white px-4 py-2 text-xs font-semibold text-stone-600 transition hover:bg-stone-100"
+            >
+              Clear all
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-stone-500">
+          Name files as{" "}
+          <code className="rounded bg-stone-200 px-1 py-0.5">Book Title - Chapter Title.pdf</code>{" "}
+          — the book is detected per file automatically. Folder mode filters PDFs only.
+        </p>
+      </div>
 
       {files.length > 0 && (
         <div className="rounded-[1.5rem] border border-stone-200 bg-stone-50 px-5 py-4">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">
             {files.length} file{files.length !== 1 ? "s" : ""} selected
           </p>
-          <ul className="grid gap-1.5">
-            {files.map((file) => (
-              <li key={file.name} className="grid grid-cols-[1fr_auto] gap-4 rounded-xl bg-white px-4 py-2.5 text-sm">
+          <ul className="grid gap-1.5 max-h-64 overflow-y-auto pr-1">
+            {files.map((file, i) => (
+              <li key={file.name} className="grid grid-cols-[1fr_auto_auto] gap-3 rounded-xl bg-white px-4 py-2.5 text-sm">
                 <span className="truncate font-medium text-stone-800">{chapterTitleFromFilename(file.name)}</span>
                 <span className="whitespace-nowrap text-stone-400">{(file.size / 1024).toFixed(0)} KB</span>
+                <button
+                  type="button"
+                  aria-label="Remove"
+                  onClick={() => setFiles((prev) => prev.filter((_, j) => j !== i))}
+                  className="text-stone-400 hover:text-stone-700 transition"
+                >
+                  ✕
+                </button>
               </li>
             ))}
           </ul>

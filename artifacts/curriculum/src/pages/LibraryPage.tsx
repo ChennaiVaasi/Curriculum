@@ -1,6 +1,81 @@
 import { Link } from "wouter";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Catalog, ChapterRecord } from "@/lib/types";
+
+function ChapterMenu({ chapter, onDeleted }: { chapter: ChapterRecord; onDeleted: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  async function handleDelete() {
+    if (!confirm(`Delete "${chapter.title}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    setOpen(false);
+    try {
+      const res = await fetch(`/api/chapters/${chapter.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      onDeleted(chapter.id);
+    } catch {
+      alert("Could not delete this chapter. Please try again.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function handleDownload() {
+    const a = document.createElement("a");
+    a.href = `/api/files/${chapter.id}?download=1`;
+    a.download = chapter.originalFilename ?? `${chapter.title}.pdf`;
+    a.click();
+    setOpen(false);
+  }
+
+  return (
+    <div ref={ref} className="relative" onClick={(e) => e.preventDefault()}>
+      <button
+        aria-label="Chapter options"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen((v) => !v); }}
+        disabled={deleting}
+        className="flex h-8 w-8 items-center justify-center rounded-full text-stone-400 transition hover:bg-stone-100 hover:text-stone-700 disabled:opacity-40"
+      >
+        {deleting ? (
+          <span className="text-xs">…</span>
+        ) : (
+          <span className="text-lg leading-none tracking-[-2px]">•••</span>
+        )}
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-9 z-10 min-w-[9rem] rounded-2xl border border-stone-200 bg-white py-1.5 shadow-[0_8px_32px_-8px_rgba(41,37,36,0.28)]">
+          <button
+            onClick={handleDownload}
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-stone-700 transition hover:bg-stone-50"
+          >
+            <span>↓</span> Download
+          </button>
+          <div className="mx-3 my-1 border-t border-stone-100" />
+          <button
+            onClick={handleDelete}
+            className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 transition hover:bg-red-50"
+          >
+            <span>✕</span> Delete
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function LibraryPage() {
   const [catalog, setCatalog] = useState<Catalog>({ books: [], chapters: [] });
@@ -35,10 +110,16 @@ export default function LibraryPage() {
     })
     .sort((a, b) => a.title.localeCompare(b.title));
 
-  // Build a quick bookId → title lookup
   const bookTitle: Record<string, string> = {};
   for (const book of catalog.books) {
     bookTitle[book.id] = book.title;
+  }
+
+  function handleDeleted(id: string) {
+    setCatalog((prev) => ({
+      books: prev.books,
+      chapters: prev.chapters.filter((c) => c.id !== id),
+    }));
   }
 
   return (
@@ -100,29 +181,33 @@ export default function LibraryPage() {
       ) : (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {chapters.map((chapter) => (
-            <Link
+            <div
               key={chapter.id}
-              href={`/chapters/${chapter.id}`}
-              className="grid gap-4 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_60px_-32px_rgba(41,37,36,0.25)] transition hover:-translate-y-1 hover:border-stone-400"
+              className="relative grid gap-4 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_60px_-32px_rgba(41,37,36,0.25)] transition hover:-translate-y-1 hover:border-stone-400"
             >
               <div className="flex items-center justify-between gap-4">
                 <span className="rounded-full bg-stone-100 px-3 py-1 text-xs uppercase tracking-[0.2em] text-stone-600">
                   {chapter.level}
                 </span>
-                {bookTitle[chapter.bookId] && (
-                  <span className="text-xs text-stone-400 truncate max-w-[10rem] text-right">
-                    {bookTitle[chapter.bookId]}
-                  </span>
-                )}
+                <div className="flex items-center gap-1 min-w-0">
+                  {bookTitle[chapter.bookId] && (
+                    <span className="text-xs text-stone-400 truncate max-w-[8rem] text-right">
+                      {bookTitle[chapter.bookId]}
+                    </span>
+                  )}
+                  <ChapterMenu chapter={chapter} onDeleted={handleDeleted} />
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-semibold tracking-tight">{chapter.title}</h2>
-                <p className="mt-2 text-sm text-stone-600">{chapter.theme}</p>
-              </div>
-              <div className="rounded-[1.5rem] bg-stone-50 p-4 text-sm text-stone-700">
-                Primary skill: <span className="font-medium">{chapter.primarySkill}</span>
-              </div>
-            </Link>
+              <Link href={`/chapters/${chapter.id}`} className="grid gap-3">
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight">{chapter.title}</h2>
+                  <p className="mt-2 text-sm text-stone-600">{chapter.theme}</p>
+                </div>
+                <div className="rounded-[1.5rem] bg-stone-50 p-4 text-sm text-stone-700">
+                  Primary skill: <span className="font-medium">{chapter.primarySkill}</span>
+                </div>
+              </Link>
+            </div>
           ))}
         </section>
       )}
