@@ -53,7 +53,7 @@ export function PdfViewer({ url, title, chapterId, chapterTitle, bookTitle }: Pr
       const response = await fetch("/api/chess-eye/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imageBase64, mimeType: "image/png", pageNumber: page }),
+        body: JSON.stringify({ imageBase64, mimeType: "image/png" }),
       });
 
       const payload = (await response.json()) as { positions?: Array<{ fen: string }>; error?: string };
