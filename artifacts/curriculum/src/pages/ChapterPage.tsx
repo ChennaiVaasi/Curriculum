@@ -89,7 +89,7 @@ export default function ChapterPage() {
         </section>
 
         <div className="sticky top-6 h-fit">
-          <ChapterChat chapterId={chapter.id} chapterTitle={chapter.title} bookTitle={book?.title} />
+          <ChapterChat key={chapter.id} chapterId={chapter.id} chapterTitle={chapter.title} bookTitle={book?.title} />
         </div>
       </div>
     </div>

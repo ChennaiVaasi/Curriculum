@@ -131,7 +131,12 @@ export function ChapterChat({
       setStatus("Thinking…");
 
       const endpoint = provider === "chat2pdf" ? "/api/chat2pdf/message" : "/api/chatpdf/message";
-      const body = { sourceId: activeSourceId, messages: [{ role: "user", content: question }] };
+      const body = {
+        sourceId: activeSourceId,
+        messages: nextMessages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) => ({ role: m.role, content: m.content })),
+      };
 
       const response = await fetch(endpoint, {
         method: "POST",
