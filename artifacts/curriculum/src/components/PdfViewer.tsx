@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
@@ -22,7 +22,21 @@ export function PdfViewer({ url, title, chapterId, chapterTitle, bookTitle }: Pr
   const [scanning, setScanning] = useState(false);
   const [scanStatus, setScanStatus] = useState("");
   const [scannedFens, setScannedFens] = useState<ScannedFen[]>([]);
+  const [containerWidth, setContainerWidth] = useState<number>(600);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      const width = entries[0]?.contentRect.width;
+      if (width) setContainerWidth(width);
+    });
+    observer.observe(el);
+    setContainerWidth(el.getBoundingClientRect().width);
+    return () => observer.disconnect();
+  }, []);
 
   const onLoadSuccess = useCallback(({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
@@ -150,7 +164,7 @@ export function PdfViewer({ url, title, chapterId, chapterTitle, bookTitle }: Pr
     <div className="flex flex-col">
       {pageControls("top")}
 
-      <div className="overflow-auto bg-stone-100">
+      <div ref={containerRef} className="overflow-auto bg-stone-100">
         <Document
           file={url}
           onLoadSuccess={onLoadSuccess}
@@ -167,7 +181,7 @@ export function PdfViewer({ url, title, chapterId, chapterTitle, bookTitle }: Pr
             renderAnnotationLayer
             canvasRef={canvasRef}
             className="mx-auto shadow-sm"
-            width={Math.min(typeof window !== "undefined" ? window.innerWidth - 64 : 800, 900)}
+            width={Math.max(containerWidth - 2, 200)}
           />
         </Document>
       </div>
