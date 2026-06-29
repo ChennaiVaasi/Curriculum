@@ -192,7 +192,7 @@ export function PdfViewer({ url, title, chapterId, chapterTitle, bookTitle }: Pr
         {scannedFens.length > 0 && (
           <div className="mt-4 grid gap-2">
             {scannedFens.map((entry, index) => (
-              <div key={entry.fen} className="grid gap-2 rounded-[1.25rem] border border-stone-200 bg-stone-50 p-4">
+              <div key={index} className="grid gap-2 rounded-[1.25rem] border border-stone-200 bg-stone-50 p-4">
                 <code className="overflow-x-auto text-xs leading-6 text-stone-700">{entry.fen}</code>
                 <div className="flex gap-2">
                   <button

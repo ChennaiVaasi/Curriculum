@@ -131,7 +131,6 @@ async function geminiGenerateJson(
       generationConfig: {
         responseMimeType: "application/json",
         maxOutputTokens,
-        thinkingConfig: { thinkingBudget: 0 },
       },
     }),
   });
