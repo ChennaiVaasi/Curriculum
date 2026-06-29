@@ -164,26 +164,28 @@ export function PdfViewer({ url, title, chapterId, chapterTitle, bookTitle }: Pr
     <div className="flex flex-col">
       {pageControls("top")}
 
-      <div ref={containerRef} className="overflow-auto bg-stone-100">
-        <Document
-          file={url}
-          onLoadSuccess={onLoadSuccess}
-          onLoadError={onLoadError}
-          loading={
-            <div className="flex h-64 items-center justify-center text-sm text-stone-500">
-              Loading PDF…
-            </div>
-          }
-        >
-          <Page
-            pageNumber={page}
-            renderTextLayer
-            renderAnnotationLayer
-            canvasRef={canvasRef}
-            className="mx-auto shadow-sm"
-            width={Math.max(containerWidth - 2, 200)}
-          />
-        </Document>
+      <div ref={containerRef}>
+        <div className="overflow-x-auto bg-stone-100">
+          <Document
+            file={url}
+            onLoadSuccess={onLoadSuccess}
+            onLoadError={onLoadError}
+            loading={
+              <div className="flex h-64 items-center justify-center text-sm text-stone-500">
+                Loading PDF…
+              </div>
+            }
+          >
+            <Page
+              pageNumber={page}
+              renderTextLayer
+              renderAnnotationLayer
+              canvasRef={canvasRef}
+              className="mx-auto shadow-sm"
+              width={containerWidth || undefined}
+            />
+          </Document>
+        </div>
       </div>
 
       {pageControls("bottom")}
