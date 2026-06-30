@@ -106,6 +106,8 @@ export function validatePgnGame(gameText: string): ParsedPgnGame {
   if (!headers.Event) warnings.push("Missing Event header; using filename or Unknown Event on import.");
   const parsed = parseMoveText(gameText, warnings);
   const chess = new Chess();
+  const setupFen = headers["SetUp"] === "1" && headers["FEN"];
+  if (setupFen) { try { chess.load(setupFen); } catch { /* ignore */ } }
   const errors: string[] = [];
   for (const move of parsed.moves) {
     try { chess.move(move.san); } catch { errors.push(`Invalid SAN at ply ${move.ply}: ${move.san}`); break; }
@@ -119,6 +121,10 @@ export function parsePgnFile(rawText: string): ParsedPgnGame[] { return splitPgn
 
 export function buildPositions(game: ParsedPgnGame) {
   const chess = new Chess();
+  const setupFen = game.headers["SetUp"] === "1" && game.headers["FEN"];
+  if (setupFen) {
+    try { chess.load(setupFen); } catch { /* fall back to start */ }
+  }
   const positions: Array<{ ply: number; fen: string; san?: string; from?: string; to?: string; moveNumber?: number; color?: "w"|"b"; comment?: string; clock?: string; eval?: string }> = [{ ply: 0, fen: chess.fen() }];
   for (const m of game.moves) {
     let played: Move | null = null;
