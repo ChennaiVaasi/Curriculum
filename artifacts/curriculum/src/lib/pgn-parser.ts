@@ -58,7 +58,9 @@ export function parseMainlineMoves(gameText: string): ParsedPgnMove[] {
 export function extractMoveMetadata(gameText: string) { return parseMoveText(gameText, []).moves.map(({ ply, comment, clock, eval: ev }) => ({ ply, comment, clock, eval: ev })); }
 
 function parseMoveText(gameText: string, warnings: string[]) {
-  let text = stripVariations(stripHeaders(gameText), warnings);
+  // Strip PGN escape lines (lines beginning with %) before any other processing
+  let text = gameText.replace(/^%[^\n]*/gm, " ");
+  text = stripVariations(stripHeaders(text), warnings);
   const comments: string[] = [];
   text = text.replace(/;[^\n]*/g, " ").replace(/\{([^}]*)\}/g, (_, c) => ` __COMMENT_${comments.push(String(c).trim()) - 1}__ `);
   text = text.replace(/\$\d+/g, " ").replace(/\d+\.(\.\.)?/g, " ").replace(/\s+/g, " ").trim();
@@ -119,7 +121,9 @@ export function buildPositions(game: ParsedPgnGame) {
   const chess = new Chess();
   const positions: Array<{ ply: number; fen: string; san?: string; from?: string; to?: string; moveNumber?: number; color?: "w"|"b"; comment?: string; clock?: string; eval?: string }> = [{ ply: 0, fen: chess.fen() }];
   for (const m of game.moves) {
-    const played = chess.move(m.san) as Move;
+    let played: Move | null = null;
+    try { played = chess.move(m.san) as Move; } catch { break; }
+    if (!played) break;
     positions.push({ ply: m.ply, fen: chess.fen(), san: played.san, from: played.from, to: played.to, moveNumber: m.moveNumber, color: m.color, comment: m.comment, clock: m.clock, eval: m.eval });
   }
   return positions;
