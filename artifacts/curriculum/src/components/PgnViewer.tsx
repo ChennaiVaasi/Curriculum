@@ -14,19 +14,43 @@ type PgnMove = {
   black?: string;
 };
 
-function parsePgn(pgn: string): { headers: Record<string, string>; moves: PgnMove[] } {
-  if (!pgn?.trim()) return { headers: {}, moves: [] };
+type PgnGame = {
+  headers: Record<string, string>;
+  moves: PgnMove[];
+  raw: string;
+};
 
+function splitGames(pgn: string): string[] {
+  if (!pgn?.trim()) return [];
+  const RESULT = /\b(1-0|0-1|1\/2-1\/2|\*)\s*/g;
+  const games: string[] = [];
+  let start = 0;
+  let m: RegExpExecArray | null;
+  RESULT.lastIndex = 0;
+  while ((m = RESULT.exec(pgn)) !== null) {
+    const end = m.index + m[0].length;
+    const chunk = pgn.slice(start, end).trim();
+    if (chunk) games.push(chunk);
+    start = end;
+    // skip blank lines between games
+    while (start < pgn.length && pgn[start] === "\n") start++;
+    RESULT.lastIndex = start;
+  }
+  const tail = pgn.slice(start).trim();
+  if (tail) games.push(tail);
+  return games.filter((g) => g.length > 0);
+}
+
+function parseSingleGame(raw: string): PgnGame {
   const headers: Record<string, string> = {};
   const headerRegex = /\[(\w+)\s+"([^"]*)"\]/g;
   let match;
-  while ((match = headerRegex.exec(pgn)) !== null) {
+  while ((match = headerRegex.exec(raw)) !== null) {
     headers[match[1]] = match[2];
   }
 
-  const moveText = pgn.replace(/\[.*?\]/gs, "").trim();
+  const moveText = raw.replace(/\[.*?\]/gs, "").trim();
 
-  // Strip nested curly-brace comments
   let withoutComments = moveText;
   let prev = "";
   while (prev !== withoutComments) {
@@ -34,7 +58,6 @@ function parsePgn(pgn: string): { headers: Record<string, string>; moves: PgnMov
     withoutComments = withoutComments.replace(/\{[^{}]*\}/g, "");
   }
 
-  // Strip nested parenthesised variations
   let withoutVariations = withoutComments;
   prev = "";
   while (prev !== withoutVariations) {
@@ -53,7 +76,6 @@ function parsePgn(pgn: string): { headers: Record<string, string>; moves: PgnMov
   let current: Partial<PgnMove> & { _blackNext?: boolean } = {};
 
   for (const token of tokens) {
-    // Move-number token: "1." or "1..." (black continuation)
     if (/^\d+\.+/.test(token)) {
       if (current.number !== undefined && current.white && !current._blackNext) {
         moves.push({ number: current.number, white: current.white, black: current.black });
@@ -62,33 +84,41 @@ function parsePgn(pgn: string): { headers: Record<string, string>; moves: PgnMov
       current = { number: parseInt(token, 10), _blackNext: isBlackContinuation };
       continue;
     }
-    // Standalone ellipsis (e.g. "1. ... e5") — next move belongs to Black
-    if (token === "...") {
-      current._blackNext = true;
-      continue;
-    }
+    if (token === "...") { current._blackNext = true; continue; }
     if (!token || RESULT_TOKENS.has(token)) continue;
     if (current.number !== undefined) {
-      if (current._blackNext) {
-        current.black = token;
-        current._blackNext = false;
-      } else if (!current.white) {
-        current.white = token;
-      } else if (!current.black) {
-        current.black = token;
-      }
+      if (current._blackNext) { current.black = token; current._blackNext = false; }
+      else if (!current.white) { current.white = token; }
+      else if (!current.black) { current.black = token; }
     }
   }
   if (current.number !== undefined && current.white) {
     moves.push({ number: current.number, white: current.white, black: current.black });
   }
 
-  return { headers, moves };
+  return { headers, moves, raw };
+}
+
+function parseAllGames(pgn: string): PgnGame[] {
+  const chunks = splitGames(pgn);
+  if (chunks.length === 0) return [parseSingleGame(pgn)];
+  return chunks.map(parseSingleGame);
+}
+
+function gameLabel(game: PgnGame, index: number): string {
+  const { headers } = game;
+  const white = headers["White"] ?? "?";
+  const black = headers["Black"] ?? "?";
+  const event = headers["Event"];
+  if (white !== "?" || black !== "?") return `${index + 1}. ${white} – ${black}`;
+  if (event) return `${index + 1}. ${event}`;
+  return `Game ${index + 1}`;
 }
 
 export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
   const [copied, setCopied] = useState(false);
   const [saveStatus, setSaveStatus] = useState("");
+  const [gameIndex, setGameIndex] = useState(0);
 
   if (!pgn?.trim()) {
     return (
@@ -98,22 +128,38 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
     );
   }
 
-  const { headers, moves } = parsePgn(pgn);
+  const games = parseAllGames(pgn);
+  const game = games[Math.min(gameIndex, games.length - 1)];
+  const { headers, moves } = game;
   const result = headers["Result"] ?? "*";
+  const multiGame = games.length > 1;
 
   function copyPgn() {
-    navigator.clipboard.writeText(pgn).then(() => {
+    navigator.clipboard.writeText(game.raw).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
   }
 
   function downloadPgn() {
+    const blob = new Blob([game.raw], { type: "application/x-chess-pgn" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const label = headers["White"] && headers["Black"]
+      ? `${headers["White"]}-vs-${headers["Black"]}`
+      : chapterTitle ?? "game";
+    a.download = `${label}.pgn`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function downloadAllPgn() {
     const blob = new Blob([pgn], { type: "application/x-chess-pgn" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${chapterTitle ?? "game"}.pgn`;
+    a.download = `${chapterTitle ?? "games"}.pgn`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -146,6 +192,41 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
 
   return (
     <div className="flex flex-col">
+      {multiGame && (
+        <div className="border-b border-stone-200 px-5 py-3 flex items-center gap-3">
+          <span className="text-xs uppercase tracking-[0.12em] text-stone-400 shrink-0">
+            {games.length} games
+          </span>
+          <select
+            value={gameIndex}
+            onChange={(e) => setGameIndex(Number(e.target.value))}
+            className="flex-1 rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-800 focus:outline-none focus:ring-1 focus:ring-stone-400"
+          >
+            {games.map((g, i) => (
+              <option key={i} value={i}>
+                {gameLabel(g, i)}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={() => setGameIndex((i) => Math.max(0, i - 1))}
+            disabled={gameIndex === 0}
+            className="rounded-full border border-stone-200 px-3 py-1 text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-30"
+          >
+            ‹
+          </button>
+          <button
+            type="button"
+            onClick={() => setGameIndex((i) => Math.min(games.length - 1, i + 1))}
+            disabled={gameIndex === games.length - 1}
+            className="rounded-full border border-stone-200 px-3 py-1 text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-30"
+          >
+            ›
+          </button>
+        </div>
+      )}
+
       {Object.keys(headers).length > 0 && (
         <div className="border-b border-stone-200 px-5 py-4">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-sm sm:grid-cols-3">
@@ -200,8 +281,17 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
             onClick={downloadPgn}
             className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
           >
-            ↓ Download .pgn
+            ↓ This game
           </button>
+          {multiGame && (
+            <button
+              type="button"
+              onClick={downloadAllPgn}
+              className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:border-stone-400 hover:bg-stone-50"
+            >
+              ↓ All {games.length} games
+            </button>
+          )}
           {saveStatus && (
             <span className="text-sm text-stone-500">{saveStatus}</span>
           )}
@@ -214,7 +304,7 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
             Raw PGN
           </summary>
           <pre className="mt-3 max-h-64 overflow-auto rounded-[1.25rem] border border-stone-200 bg-stone-50 p-4 text-xs leading-6 text-stone-700 whitespace-pre-wrap break-words">
-            {pgn}
+            {game.raw}
           </pre>
         </details>
       </div>
