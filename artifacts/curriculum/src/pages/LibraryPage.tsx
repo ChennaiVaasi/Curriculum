@@ -36,7 +36,7 @@ function ChapterMenu({ chapter, onDeleted }: { chapter: ChapterRecord; onDeleted
   function handleDownload() {
     const a = document.createElement("a");
     a.href = `/api/files/${chapter.id}?download=1`;
-    a.download = chapter.originalFilename ?? `${chapter.title}.pdf`;
+    a.download = chapter.originalFilename ?? `${chapter.title}.${chapter.fileType ?? "pdf"}`;
     a.click();
     setOpen(false);
   }
@@ -77,12 +77,29 @@ function ChapterMenu({ chapter, onDeleted }: { chapter: ChapterRecord; onDeleted
   );
 }
 
+type FileTypeTab = "" | "pdf" | "pgn";
+
+const FILE_TYPE_STYLES: Record<string, { label: string; bg: string; text: string }> = {
+  pdf: { label: "PDF", bg: "bg-amber-100", text: "text-amber-800" },
+  pgn: { label: "PGN", bg: "bg-emerald-100", text: "text-emerald-800" },
+};
+
+function FileTypeBadge({ fileType }: { fileType?: string }) {
+  const style = FILE_TYPE_STYLES[fileType ?? ""] ?? { label: (fileType ?? "").toUpperCase() || "PDF", bg: "bg-stone-100", text: "text-stone-600" };
+  return (
+    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.12em] ${style.bg} ${style.text}`}>
+      {style.label}
+    </span>
+  );
+}
+
 export default function LibraryPage() {
   const [catalog, setCatalog] = useState<Catalog>({ books: [], chapters: [] });
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState("");
   const [theme, setTheme] = useState("");
+  const [fileTypeTab, setFileTypeTab] = useState<FileTypeTab>("");
 
   useEffect(() => {
     fetch("/api/catalog")
@@ -92,10 +109,14 @@ export default function LibraryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const uniqueLevels = [...new Set(catalog.chapters.map((c) => c.level))].filter(Boolean).sort();
-  const uniqueThemes = [...new Set(catalog.chapters.map((c) => c.theme))].filter(Boolean).sort();
+  const chaptersForTab = fileTypeTab
+    ? catalog.chapters.filter((c) => (c.fileType ?? "pdf") === fileTypeTab)
+    : catalog.chapters;
 
-  const chapters: ChapterRecord[] = catalog.chapters
+  const uniqueLevels = [...new Set(chaptersForTab.map((c) => c.level))].filter(Boolean).sort();
+  const uniqueThemes = [...new Set(chaptersForTab.map((c) => c.theme))].filter(Boolean).sort();
+
+  const chapters: ChapterRecord[] = chaptersForTab
     .filter((chapter) => {
       const q = query.toLowerCase().trim();
       const matchesQuery =
@@ -115,12 +136,21 @@ export default function LibraryPage() {
     bookTitle[book.id] = book.title;
   }
 
+  const pdfCount = catalog.chapters.filter((c) => (c.fileType ?? "pdf") === "pdf").length;
+  const pgnCount = catalog.chapters.filter((c) => c.fileType === "pgn").length;
+
   function handleDeleted(id: string) {
     setCatalog((prev) => ({
       books: prev.books,
       chapters: prev.chapters.filter((c) => c.id !== id),
     }));
   }
+
+  const tabs: { value: FileTypeTab; label: string; count: number }[] = [
+    { value: "", label: "All", count: catalog.chapters.length },
+    { value: "pdf", label: "PDFs", count: pdfCount },
+    { value: "pgn", label: "PGN Games", count: pgnCount },
+  ];
 
   return (
     <div className="grid gap-6">
@@ -131,6 +161,27 @@ export default function LibraryPage() {
             <p className="mt-2 text-sm text-stone-500">
               Browse all chapters by level, theme, and skill focus.
             </p>
+
+            <div className="mt-4 flex gap-1 rounded-2xl bg-stone-100 p-1 w-fit">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.value}
+                  onClick={() => { setFileTypeTab(tab.value); setLevel(""); setTheme(""); }}
+                  className={`flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${
+                    fileTypeTab === tab.value
+                      ? "bg-white text-stone-900 shadow-sm"
+                      : "text-stone-500 hover:text-stone-700"
+                  }`}
+                >
+                  {tab.label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
+                    fileTypeTab === tab.value ? "bg-stone-100 text-stone-600" : "bg-stone-200 text-stone-500"
+                  }`}>
+                    {tab.count}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_0.8fr_auto]">
@@ -176,7 +227,11 @@ export default function LibraryPage() {
         </section>
       ) : chapters.length === 0 ? (
         <section className="rounded-[2rem] border border-dashed border-stone-300 bg-stone-50 p-8 text-sm leading-7 text-stone-600">
-          No matching chapters yet. Upload chapter PDFs first, or loosen the current filters.
+          {fileTypeTab === "pgn"
+            ? "No PGN games yet. Upload PGN files first, or switch to PDFs."
+            : fileTypeTab === "pdf"
+            ? "No PDF chapters yet. Upload chapter PDFs first, or loosen the current filters."
+            : "No matching chapters yet. Upload chapter PDFs first, or loosen the current filters."}
         </section>
       ) : (
         <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -186,9 +241,12 @@ export default function LibraryPage() {
               className="relative grid gap-4 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_60px_-32px_rgba(41,37,36,0.25)] transition hover:-translate-y-1 hover:border-stone-400"
             >
               <div className="flex items-center justify-between gap-4">
-                <span className="rounded-full bg-stone-100 px-3 py-1 text-xs uppercase tracking-[0.2em] text-stone-600">
-                  {chapter.level}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-stone-100 px-3 py-1 text-xs uppercase tracking-[0.2em] text-stone-600">
+                    {chapter.level}
+                  </span>
+                  <FileTypeBadge fileType={chapter.fileType} />
+                </div>
                 <div className="flex items-center gap-1 min-w-0">
                   {bookTitle[chapter.bookId] && (
                     <span className="text-xs text-stone-400 truncate max-w-[8rem] text-right">

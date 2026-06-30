@@ -4,6 +4,7 @@ import type { BookRecord, ChapterRecord } from "@/lib/types";
 import { humanBytes } from "@/lib/utils";
 import { ChapterChat } from "@/components/ChapterChat";
 import { PdfViewer } from "@/components/PdfViewer";
+import { PgnViewer } from "@/components/PgnViewer";
 
 type ChapterResult = {
   chapter: ChapterRecord;
@@ -44,6 +45,7 @@ export default function ChapterPage() {
   }
 
   const { chapter, book, siblings } = result;
+  const isPgn = chapter.fileType === "pgn";
 
   return (
     <div className="grid gap-6">
@@ -54,6 +56,10 @@ export default function ChapterPage() {
           <span>{chapter.level}</span>
           <span>-</span>
           <span>{chapter.theme}</span>
+          <span>-</span>
+          <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${isPgn ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>
+            {isPgn ? "PGN" : "PDF"}
+          </span>
         </div>
         <h1 className="mt-4 text-4xl font-semibold tracking-tight">{chapter.title}</h1>
         <div className="mt-4 grid gap-3 text-sm text-stone-600 sm:grid-cols-3">
@@ -76,16 +82,32 @@ export default function ChapterPage() {
       <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
         <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
           <div className="border-b border-stone-200 px-6 py-5">
-            <h2 className="text-lg font-semibold tracking-tight">Chapter reader</h2>
-            <p className="mt-1 text-sm text-stone-500">PDFs are served securely through the app.</p>
+            <h2 className="text-lg font-semibold tracking-tight">
+              {isPgn ? "PGN Viewer" : "Chapter reader"}
+            </h2>
+            <p className="mt-1 text-sm text-stone-500">
+              {isPgn
+                ? "Game notation stored with this chapter."
+                : "PDFs are served securely through the app."}
+            </p>
           </div>
-          <PdfViewer
-            url={`/api/files/${chapter.id}`}
-            title={chapter.title}
-            chapterId={chapter.id}
-            chapterTitle={chapter.title}
-            bookTitle={book?.title}
-          />
+
+          {isPgn ? (
+            <PgnViewer
+              pgn={chapter.pgn}
+              chapterId={chapter.id}
+              chapterTitle={chapter.title}
+              bookTitle={book?.title}
+            />
+          ) : (
+            <PdfViewer
+              url={`/api/files/${chapter.id}`}
+              title={chapter.title}
+              chapterId={chapter.id}
+              chapterTitle={chapter.title}
+              bookTitle={book?.title}
+            />
+          )}
         </section>
 
         <div className="sticky top-6 h-fit">
