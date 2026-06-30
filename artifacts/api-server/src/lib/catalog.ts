@@ -82,6 +82,7 @@ export function createChapterRecord(
   filename: string,
   objectKey: string,
   fileSize: number,
+  fileType: "pdf" | "pgn" = "pdf",
 ): ChapterRecord {
   const title = chapterTitleFromFilename(filename);
   const now = new Date().toISOString();
@@ -101,6 +102,7 @@ export function createChapterRecord(
     originalFilename: filename,
     uploadedAt: now,
     fileSize,
+    fileType,
   };
 }
 

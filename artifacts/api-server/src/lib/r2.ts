@@ -66,6 +66,24 @@ export function getPublicUrl() {
   return env.publicUrl;
 }
 
+export async function uploadPgnObject(key: string, text: string, filename: string) {
+  const client = getClient();
+  const asciiFallback = filename
+    .replace(/[/\\]/g, "-")
+    .replace(/[^\x20-\x7e]/g, "_")
+    .replace(/[";]/g, "_")
+    .trim() || "chapter.pgn";
+  await client.send(
+    new PutObjectCommand({
+      Bucket: env.bucket,
+      Key: key,
+      Body: text,
+      ContentType: "text/plain; charset=utf-8",
+      ContentDisposition: `inline; filename="${asciiFallback}"`,
+    }),
+  );
+}
+
 export async function uploadPdfObject(key: string, bytes: Uint8Array, filename: string) {
   const client = getClient();
   await client.send(

@@ -30,6 +30,7 @@ export type ChapterRecord = {
   originalFilename: string;
   uploadedAt: string;
   fileSize: number;
+  fileType?: "pdf" | "pgn";
 };
 
 export type UploadPayload = {

@@ -16,6 +16,7 @@ export type FileItem = {
   status: FileStatus;
   progress: number;
   error?: string;
+  folderName?: string;
 };
 
 export type UploadMetadata = {
@@ -26,6 +27,14 @@ export type UploadMetadata = {
   secondarySkills: string;
   notes: string;
   pgn: string;
+};
+
+export type PgnUploadMetadata = {
+  level: string;
+  theme: string;
+  primarySkill: string;
+  secondarySkills: string;
+  notes: string;
 };
 
 export type UploadState = {
@@ -39,6 +48,10 @@ export type UploadState = {
 type UploadContextValue = {
   state: UploadState;
   startUpload: (files: File[], metadata: UploadMetadata) => void;
+  startPgnUpload: (
+    groups: Array<{ folderName: string; files: File[] }>,
+    meta: PgnUploadMetadata,
+  ) => void;
   clearDone: () => void;
 };
 
@@ -90,6 +103,48 @@ function uploadFileXhr(
   });
 }
 
+function uploadPgnFileXhr(
+  file: File,
+  folderName: string,
+  meta: PgnUploadMetadata,
+  onProgress: (pct: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const body = new FormData();
+    body.set("bookTitle", folderName);
+    body.set("level", meta.level);
+    body.set("theme", meta.theme);
+    body.set("primarySkill", meta.primarySkill);
+    body.set("secondarySkills", meta.secondarySkills);
+    body.set("notes", meta.notes);
+    body.append("files", file);
+
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/api/upload-pgn");
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress(100);
+        resolve();
+      } else {
+        let msg = "Upload failed.";
+        try {
+          const parsed = JSON.parse(xhr.responseText);
+          if (parsed.error) msg = parsed.error;
+        } catch {}
+        reject(new Error(msg));
+      }
+    };
+
+    xhr.onerror = () => reject(new Error("Network error."));
+    xhr.send(body);
+  });
+}
+
 export function UploadProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<UploadState>({
     files: [],
@@ -101,81 +156,126 @@ export function UploadProvider({ children }: { children: ReactNode }) {
 
   const runningRef = useRef(false);
 
-  const startUpload = useCallback((files: File[], metadata: UploadMetadata) => {
-    if (runningRef.current) return;
+  const runQueue = useCallback(
+    (
+      items: FileItem[],
+      uploadFn: (item: FileItem, onProgress: (pct: number) => void) => Promise<void>,
+    ) => {
+      runningRef.current = true;
 
-    const items: FileItem[] = files.map((f) => ({
-      id: makeId(),
-      file: f,
-      name: f.name,
-      status: "pending",
-      progress: 0,
-    }));
+      (async () => {
+        let done = 0;
+        let errors = 0;
 
-    setState({
-      files: items,
-      metadata,
-      isRunning: true,
-      doneCount: 0,
-      errorCount: 0,
-    });
+        for (let i = 0; i < items.length; i++) {
+          const item = items[i];
 
-    runningRef.current = true;
+          setState((prev) => ({
+            ...prev,
+            files: prev.files.map((f) =>
+              f.id === item.id ? { ...f, status: "uploading", progress: 0 } : f,
+            ),
+          }));
 
-    (async () => {
-      let done = 0;
-      let errors = 0;
+          try {
+            await uploadFn(item, (pct) => {
+              setState((prev) => ({
+                ...prev,
+                files: prev.files.map((f) =>
+                  f.id === item.id ? { ...f, progress: pct } : f,
+                ),
+              }));
+            });
 
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-
-        setState((prev) => ({
-          ...prev,
-          files: prev.files.map((f) =>
-            f.id === item.id ? { ...f, status: "uploading", progress: 0 } : f,
-          ),
-        }));
-
-        try {
-          await uploadFileXhr(item.file, metadata, (pct) => {
+            done++;
             setState((prev) => ({
               ...prev,
+              doneCount: done,
               files: prev.files.map((f) =>
-                f.id === item.id ? { ...f, progress: pct } : f,
+                f.id === item.id ? { ...f, status: "done", progress: 100 } : f,
               ),
             }));
-          });
-
-          done++;
-          setState((prev) => ({
-            ...prev,
-            doneCount: done,
-            files: prev.files.map((f) =>
-              f.id === item.id ? { ...f, status: "done", progress: 100 } : f,
-            ),
-          }));
-        } catch (err) {
-          errors++;
-          setState((prev) => ({
-            ...prev,
-            errorCount: errors,
-            files: prev.files.map((f) =>
-              f.id === item.id
-                ? {
-                    ...f,
-                    status: "error",
-                    error: err instanceof Error ? err.message : "Upload failed.",
-                  }
-                : f,
-            ),
-          }));
+          } catch (err) {
+            errors++;
+            setState((prev) => ({
+              ...prev,
+              errorCount: errors,
+              files: prev.files.map((f) =>
+                f.id === item.id
+                  ? {
+                      ...f,
+                      status: "error",
+                      error: err instanceof Error ? err.message : "Upload failed.",
+                    }
+                  : f,
+              ),
+            }));
+          }
         }
-      }
 
-      runningRef.current = false;
-      setState((prev) => ({ ...prev, isRunning: false }));
-    })();
-  }, []);
+        runningRef.current = false;
+        setState((prev) => ({ ...prev, isRunning: false }));
+      })();
+    },
+    [],
+  );
+
+  const startUpload = useCallback(
+    (files: File[], metadata: UploadMetadata) => {
+      if (runningRef.current) return;
+
+      const items: FileItem[] = files.map((f) => ({
+        id: makeId(),
+        file: f,
+        name: f.name,
+        status: "pending",
+        progress: 0,
+      }));
+
+      setState({
+        files: items,
+        metadata,
+        isRunning: true,
+        doneCount: 0,
+        errorCount: 0,
+      });
+
+      runQueue(items, (item, onProgress) =>
+        uploadFileXhr(item.file, metadata, onProgress),
+      );
+    },
+    [runQueue],
+  );
+
+  const startPgnUpload = useCallback(
+    (groups: Array<{ folderName: string; files: File[] }>, meta: PgnUploadMetadata) => {
+      if (runningRef.current) return;
+
+      const items: FileItem[] = groups.flatMap(({ folderName, files }) =>
+        files.map((f) => ({
+          id: makeId(),
+          file: f,
+          name: f.name,
+          folderName,
+          status: "pending" as FileStatus,
+          progress: 0,
+        })),
+      );
+
+      setState({
+        files: items,
+        metadata: null,
+        isRunning: true,
+        doneCount: 0,
+        errorCount: 0,
+      });
+
+      runQueue(items, (item, onProgress) =>
+        uploadPgnFileXhr(item.file, item.folderName!, meta, onProgress),
+      );
+    },
+    [runQueue],
+  );
 
   const clearDone = useCallback(() => {
     setState({
@@ -188,7 +288,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <UploadContext.Provider value={{ state, startUpload, clearDone }}>
+    <UploadContext.Provider value={{ state, startUpload, startPgnUpload, clearDone }}>
       {children}
     </UploadContext.Provider>
   );
