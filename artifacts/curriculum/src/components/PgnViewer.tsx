@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { FEN_NOTEBOOK_KEY, type NotebookFen } from "@/lib/fen";
 
 type Props = {
@@ -25,35 +25,62 @@ function parsePgn(pgn: string): { headers: Record<string, string>; moves: PgnMov
   }
 
   const moveText = pgn.replace(/\[.*?\]/gs, "").trim();
-  const cleaned = moveText
-    .replace(/\{[^}]*\}/g, "")
-    .replace(/\([^)]*\)/g, "")
+
+  // Strip nested curly-brace comments
+  let withoutComments = moveText;
+  let prev = "";
+  while (prev !== withoutComments) {
+    prev = withoutComments;
+    withoutComments = withoutComments.replace(/\{[^{}]*\}/g, "");
+  }
+
+  // Strip nested parenthesised variations
+  let withoutVariations = withoutComments;
+  prev = "";
+  while (prev !== withoutVariations) {
+    prev = withoutVariations;
+    withoutVariations = withoutVariations.replace(/\([^()]*\)/g, "");
+  }
+
+  const cleaned = withoutVariations
     .replace(/\$\d+/g, "")
     .replace(/\s+/g, " ")
     .trim();
 
+  const RESULT_TOKENS = new Set(["*", "1-0", "0-1", "1/2-1/2"]);
   const tokens = cleaned.split(/\s+/);
   const moves: PgnMove[] = [];
-  let current: Partial<PgnMove> = {};
+  let current: Partial<PgnMove> & { _blackNext?: boolean } = {};
 
   for (const token of tokens) {
-    if (/^\d+\./.test(token)) {
-      if (current.number !== undefined && current.white) {
-        moves.push(current as PgnMove);
+    // Move-number token: "1." or "1..." (black continuation)
+    if (/^\d+\.+/.test(token)) {
+      if (current.number !== undefined && current.white && !current._blackNext) {
+        moves.push({ number: current.number, white: current.white, black: current.black });
       }
-      current = { number: parseInt(token), white: undefined };
-    } else if (token && !["*", "1-0", "0-1", "1/2-1/2"].includes(token)) {
-      if (current.number !== undefined) {
-        if (!current.white) {
-          current.white = token;
-        } else if (!current.black) {
-          current.black = token;
-        }
+      const isBlackContinuation = /^\d+\.{3}/.test(token);
+      current = { number: parseInt(token, 10), _blackNext: isBlackContinuation };
+      continue;
+    }
+    // Standalone ellipsis (e.g. "1. ... e5") — next move belongs to Black
+    if (token === "...") {
+      current._blackNext = true;
+      continue;
+    }
+    if (!token || RESULT_TOKENS.has(token)) continue;
+    if (current.number !== undefined) {
+      if (current._blackNext) {
+        current.black = token;
+        current._blackNext = false;
+      } else if (!current.white) {
+        current.white = token;
+      } else if (!current.black) {
+        current.black = token;
       }
     }
   }
   if (current.number !== undefined && current.white) {
-    moves.push(current as PgnMove);
+    moves.push({ number: current.number, white: current.white, black: current.black });
   }
 
   return { headers, moves };
@@ -142,11 +169,11 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
               <div className="text-xs uppercase tracking-[0.12em] text-stone-400">White</div>
               <div className="text-xs uppercase tracking-[0.12em] text-stone-400">Black</div>
               {moves.map((move) => (
-                <>
-                  <span key={`${move.number}-n`} className="text-stone-400 select-none">{move.number}.</span>
-                  <span key={`${move.number}-w`} className="text-stone-800">{move.white}</span>
-                  <span key={`${move.number}-b`} className="text-stone-500">{move.black ?? ""}</span>
-                </>
+                <Fragment key={move.number}>
+                  <span className="text-stone-400 select-none">{move.number}.</span>
+                  <span className="text-stone-800">{move.white}</span>
+                  <span className="text-stone-500">{move.black ?? ""}</span>
+                </Fragment>
               ))}
               {result !== "*" && (
                 <>
