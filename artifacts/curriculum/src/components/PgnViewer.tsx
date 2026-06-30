@@ -212,17 +212,17 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
             type="button"
             onClick={() => setGameIndex((i) => Math.max(0, i - 1))}
             disabled={gameIndex === 0}
-            className="rounded-full border border-stone-200 px-3 py-1 text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-30"
+            className="rounded-full border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-30 whitespace-nowrap"
           >
-            ‹
+            ← Prev
           </button>
           <button
             type="button"
             onClick={() => setGameIndex((i) => Math.min(games.length - 1, i + 1))}
             disabled={gameIndex === games.length - 1}
-            className="rounded-full border border-stone-200 px-3 py-1 text-sm text-stone-600 hover:bg-stone-50 disabled:opacity-30"
+            className="rounded-full border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-30 whitespace-nowrap"
           >
-            ›
+            Next →
           </button>
         </div>
       )}
