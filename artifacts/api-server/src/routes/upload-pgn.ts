@@ -9,6 +9,7 @@ import {
 import { isR2Configured, uploadPgnObject } from "../lib/r2.js";
 import type { UploadPayload } from "../lib/types.js";
 import { makeId, slugify, splitCsv } from "../lib/utils.js";
+import { parseImportGames } from "../lib/pgn-import.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -65,27 +66,67 @@ router.post("/upload-pgn", upload.array("files"), async (req, res) => {
   };
 
   try {
+    const uploadBatchId = makeId("pgn-batch");
+    const importResults: Array<{ index: number; status: "success" | "failed" | "duplicate" | "warning"; white: string; black: string; date: string; event: string; error?: string; createdGameId?: string }> = [];
     const bookSlug = slugify(bookTitle);
     const catalog = await getCatalog();
     const book = await upsertBook(catalog, { ...basePayload, pgn: "" });
 
     for (const file of files) {
       const pgnText = file.buffer.toString("utf8");
+      const parsedGames = parseImportGames(pgnText);
       const objectFilename =
         safeObjectFilename(file.originalname) || `${makeId("pgn")}.pgn`;
-      const objectKey = `pgn/${bookSlug}/${makeId("pgn")}-${objectFilename}`;
 
-      await uploadPgnObject(objectKey, pgnText, file.originalname);
+      for (let index = 0; index < parsedGames.length; index++) {
+        const parsedGame = parsedGames[index];
+        const duplicate = catalog.chapters.find(
+          (entry) => entry.fileType === "pgn" && entry.pgnFingerprint === parsedGame.fingerprint,
+        );
 
-      const record = createChapterRecord(
-        book,
-        { ...basePayload, pgn: pgnText },
-        file.originalname,
-        objectKey,
-        file.size,
-        "pgn",
-      );
-      catalog.chapters.push(record);
+        if (duplicate || parsedGame.error) {
+          importResults.push({
+            index,
+            status: duplicate ? "duplicate" : "failed",
+            white: parsedGame.headers.White || "?",
+            black: parsedGame.headers.Black || "?",
+            date: parsedGame.headers.Date || "????.??.??",
+            event: parsedGame.headers.Event || "Unknown Event",
+            error: duplicate ? "Duplicate PGN already imported." : parsedGame.error,
+            createdGameId: duplicate?.id,
+          });
+          continue;
+        }
+
+        const objectKey = `pgn/${bookSlug}/${makeId("pgn")}-${index + 1}-${objectFilename}`;
+        await uploadPgnObject(objectKey, parsedGame.raw, file.originalname);
+
+        const record = createChapterRecord(
+          book,
+          { ...basePayload, pgn: parsedGame.raw },
+          `${String(index + 1).padStart(3, "0")}-${file.originalname}`,
+          objectKey,
+          Buffer.byteLength(parsedGame.raw, "utf8"),
+          "pgn",
+        );
+        record.title = `${parsedGame.headers.White || "Unknown"} vs ${parsedGame.headers.Black || "Unknown"}`;
+        record.pgnFingerprint = parsedGame.fingerprint;
+        record.sourceFilename = file.originalname;
+        record.uploadBatchId = uploadBatchId;
+        record.importedAt = new Date().toISOString();
+        record.importStatus = parsedGame.warnings.length ? "warning" : "success";
+        catalog.chapters.push(record);
+        importResults.push({
+          index,
+          status: parsedGame.warnings.length ? "warning" : "success",
+          white: parsedGame.headers.White || "?",
+          black: parsedGame.headers.Black || "?",
+          date: parsedGame.headers.Date || "????.??.??",
+          event: parsedGame.headers.Event || "Unknown Event",
+          createdGameId: record.id,
+          error: parsedGame.warnings.join(" ") || undefined,
+        });
+      }
     }
 
     book.chapterCount = catalog.chapters.filter(
@@ -95,7 +136,19 @@ router.post("/upload-pgn", upload.array("files"), async (req, res) => {
 
     await saveCatalog(catalog);
 
-    res.json({ uploaded: files.length, bookTitle: book.title });
+    res.json({
+      uploaded: importResults.filter((item) => item.status === "success" || item.status === "warning").length,
+      bookTitle: book.title,
+      uploadBatchId,
+      results: importResults,
+      summary: {
+        total: importResults.length,
+        imported: importResults.filter((item) => item.status === "success" || item.status === "warning").length,
+        failed: importResults.filter((item) => item.status === "failed").length,
+        duplicates: importResults.filter((item) => item.status === "duplicate").length,
+        warnings: importResults.filter((item) => item.status === "warning").length,
+      },
+    });
   } catch (err) {
     req.log.error({ err }, "PGN upload failed");
     res.status(500).json({ error: "PGN upload failed." });

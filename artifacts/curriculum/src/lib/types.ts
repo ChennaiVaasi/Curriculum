@@ -25,8 +25,15 @@ export type ChapterRecord = {
   primarySkill: string;
   secondarySkills: string[];
   notes: string;
+  pgn: string;
   objectKey: string;
   originalFilename: string;
   uploadedAt: string;
   fileSize: number;
+  fileType?: "pdf" | "pgn";
+  uploadBatchId?: string;
+  sourceFilename?: string;
+  importedAt?: string;
+  importStatus?: "success" | "failed" | "duplicate" | "warning";
+  pgnFingerprint?: string;
 };

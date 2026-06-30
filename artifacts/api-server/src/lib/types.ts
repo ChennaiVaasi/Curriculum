@@ -31,6 +31,11 @@ export type ChapterRecord = {
   uploadedAt: string;
   fileSize: number;
   fileType?: "pdf" | "pgn";
+  uploadBatchId?: string;
+  sourceFilename?: string;
+  importedAt?: string;
+  importStatus?: "success" | "failed" | "duplicate" | "warning";
+  pgnFingerprint?: string;
 };
 
 export type UploadPayload = {
