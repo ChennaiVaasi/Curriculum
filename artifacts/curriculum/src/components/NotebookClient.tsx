@@ -28,6 +28,11 @@ export function NotebookClient() {
     setStatus("FEN copied.");
   }
 
+  async function copyNotebookPgn() {
+    await navigator.clipboard.writeText(notebookToPgn(sortedEntries));
+    setStatus("All positions copied as PGN.");
+  }
+
   function removeEntry(id: string) {
     persist(entries.filter((entry) => entry.id !== id));
     setStatus("Entry removed.");
@@ -73,8 +78,15 @@ export function NotebookClient() {
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={downloadNotebook}
+                onClick={copyNotebookPgn}
                 className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-amber-50 transition hover:bg-stone-700"
+              >
+                Copy PGN
+              </button>
+              <button
+                type="button"
+                onClick={downloadNotebook}
+                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-100"
               >
                 Download PGN
               </button>
