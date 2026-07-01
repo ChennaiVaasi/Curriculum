@@ -58,6 +58,16 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
 
   function copyPgn() { navigator.clipboard.writeText(game.raw).then(() => { setCopied(true); setTimeout(() => setCopied(false), 1500); }); }
   function copyFen() { if (current) navigator.clipboard.writeText(current.fen); }
+  function downloadGamePgn() {
+    const white = (game.headers.White ?? "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const black = (game.headers.Black ?? "unknown").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    const filename = `${white}-vs-${black}.pgn`;
+    const blob = new Blob([game.raw], { type: "application/x-chess-pgn" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
   function saveFenToNotebook() {
     if (!chapterId || !chapterTitle || !current) return;
     try {
@@ -75,7 +85,7 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
       <section className="grid gap-3 rounded-[1.5rem] border border-stone-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-sm font-semibold text-stone-800">PGN import summary</p><p className="text-xs text-stone-500">Total {games.length} · Imported {summary.success} · Warnings {summary.warning} · Failed {summary.failed} · Duplicates handled on upload</p></div>
-          <div className="flex flex-wrap gap-2"><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={copyPgn}>{copied ? "Copied!" : "Copy PGN"}</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={copyFen}>Copy FEN</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={saveFenToNotebook}>Save selected game</button><span className="text-xs text-stone-500 self-center">{saveStatus}</span></div>
+          <div className="flex flex-wrap gap-2"><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={copyPgn}>{copied ? "Copied!" : "Copy PGN"}</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={downloadGamePgn}>Download PGN</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={copyFen}>Copy FEN</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={saveFenToNotebook}>Save position to notebook</button><span className="text-xs text-stone-500 self-center">{saveStatus}</span></div>
         </div>
       </section>
 
