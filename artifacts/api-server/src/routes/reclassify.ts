@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { getCatalog, saveCatalog } from '../lib/catalog.js';
 import { classifyFromPgn, classifyFromPdfText } from '../lib/taxonomy-apply.js';
-import { classifyDocumentFromExtracted } from '../lib/pgn-taxonomy/pdf-classifier.js';
+import { classifyDocumentFromExtracted, computeTitleOverrides } from '../lib/pgn-taxonomy/pdf-classifier.js';
 import type { ChapterTaxonomy } from '../lib/types.js';
 
 const router = Router();
@@ -64,6 +64,11 @@ router.post('/catalog/reclassify', async (req, res) => {
             chapter.pgn,
             chapter.sourceFilename || chapter.originalFilename || 'game.pgn',
           );
+          // Apply title-based overrides (game collection / classics / ending)
+          if (tax) {
+            const ov = computeTitleOverrides(chapter.title, tax.microTags);
+            if (ov) { tax.primaryThemes = ov.primaryThemes; tax.microTags = ov.microTags; }
+          }
         } else {
           // PDF: use stored first-page text when available, else path+title
           tax = classifyPdfChapter(
