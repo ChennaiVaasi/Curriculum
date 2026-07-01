@@ -24,7 +24,18 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
   const [filter, setFilter] = useState("");
   const [tab, setTab] = useState<Tab>("moves");
 
-  const games = useMemo(() => parsePgnFile(pgn), [pgn]);
+  const parsedGames = useMemo(() => parsePgnFile(pgn), [pgn]);
+  const [games, setGames] = useState<ReturnType<typeof parsePgnFile>>(parsedGames);
+  useEffect(() => { setGames(parsedGames); setGameIndex(0); }, [parsedGames]);
+
+  function deleteGame(realIndex: number) {
+    setGames((prev) => prev.filter((_, i) => i !== realIndex));
+    setGameIndex((prev) => {
+      if (realIndex < prev) return prev - 1;
+      if (realIndex === prev) return Math.max(0, prev - 1);
+      return prev;
+    });
+  }
   const game = games[Math.min(gameIndex, Math.max(games.length - 1, 0))];
   const positions = useMemo(() => (game ? buildPositions(game) : []), [game]);
   const current = positions[Math.min(ply, Math.max(positions.length - 1, 0))];
@@ -72,7 +83,7 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
         <aside className="rounded-[1.5rem] border border-stone-200 bg-white p-3">
           <input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Search player, event, ECO…" className="mb-3 w-full rounded-xl border px-3 py-2 text-sm" />
           <div className="max-h-[620px] overflow-y-auto pr-1 grid gap-2">
-            {filteredGames.slice(0, 300).map(({ g, i }) => <button key={`${g.fingerprint}-${i}`} onClick={() => setGameIndex(i)} className={`text-left rounded-xl border p-3 ${i === gameIndex ? "border-stone-900 bg-stone-50" : "border-stone-100 hover:bg-stone-50"}`}><div className="flex gap-2 justify-between"><span className="text-sm font-semibold truncate">{gameLabel(g, i)}</span><span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${badgeClass(statusFor(g))}`}>{statusFor(g)}</span></div><p className="mt-1 text-xs text-stone-500 truncate">{normalizePgnDate(g.headers.Date)} · {g.headers.Event ?? "Unknown Event"}</p><p className="mt-1 text-xs text-stone-400 truncate">{g.headers.ECO ?? ""} {g.headers.Opening ?? ""} {g.headers.WhiteElo || g.headers.BlackElo ? `· ${g.headers.WhiteElo ?? "?"}/${g.headers.BlackElo ?? "?"}` : ""}</p></button>)}
+            {filteredGames.slice(0, 300).map(({ g, i }) => <div key={`${g.fingerprint}-${i}`} className={`relative group rounded-xl border p-3 ${i === gameIndex ? "border-stone-900 bg-stone-50" : "border-stone-100 hover:bg-stone-50"}`}><button onClick={() => setGameIndex(i)} className="w-full text-left"><div className="flex gap-2 justify-between pr-5"><span className="text-sm font-semibold truncate">{gameLabel(g, i)}</span><span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${badgeClass(statusFor(g))}`}>{statusFor(g)}</span></div><p className="mt-1 text-xs text-stone-500 truncate">{normalizePgnDate(g.headers.Date)} · {g.headers.Event ?? "Unknown Event"}</p><p className="mt-1 text-xs text-stone-400 truncate">{g.headers.ECO ?? ""} {g.headers.Opening ?? ""} {g.headers.WhiteElo || g.headers.BlackElo ? `· ${g.headers.WhiteElo ?? "?"}/${g.headers.BlackElo ?? "?"}` : ""}</p></button><button onClick={(e) => { e.stopPropagation(); deleteGame(i); }} title="Delete game" className="absolute top-2 right-2 hidden group-hover:flex items-center justify-center h-5 w-5 rounded-full bg-stone-200 text-stone-500 hover:bg-rose-100 hover:text-rose-600 text-xs leading-none">×</button></div>)}
           </div>
         </aside>
 
