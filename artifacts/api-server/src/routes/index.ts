@@ -10,6 +10,7 @@ import chat2pdfRouter from "./chat2pdf.js";
 import r2statusRouter from "./r2status.js";
 import scanRouter from "./scan.js";
 import chessEyeRouter from "./chess-eye.js";
+import pgnTaxonomyRouter from "./pgn-taxonomy.js";
 
 const router: IRouter = Router();
 
@@ -24,5 +25,6 @@ router.use(chat2pdfRouter);
 router.use(r2statusRouter);
 router.use(scanRouter);
 router.use(chessEyeRouter);
+router.use(pgnTaxonomyRouter);
 
 export default router;
