@@ -9,6 +9,7 @@ import ChapterPage from "@/pages/ChapterPage";
 import NotebookPage from "@/pages/NotebookPage";
 import UploadPage from "@/pages/UploadPage";
 import PgnTaxonomyPage from "@/pages/PgnTaxonomyPage";
+import PdfTaxonomyPage from "@/pages/PdfTaxonomyPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ function Router() {
         <Route path="/notebook" component={NotebookPage} />
         <Route path="/upload" component={UploadPage} />
         <Route path="/pgn-taxonomy" component={PgnTaxonomyPage} />
+        <Route path="/pdf-taxonomy" component={PdfTaxonomyPage} />
         <Route component={NotFound} />
       </Switch>
     </SiteShell>

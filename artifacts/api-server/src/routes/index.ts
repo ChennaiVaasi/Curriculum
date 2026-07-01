@@ -11,6 +11,7 @@ import r2statusRouter from "./r2status.js";
 import scanRouter from "./scan.js";
 import chessEyeRouter from "./chess-eye.js";
 import pgnTaxonomyRouter from "./pgn-taxonomy.js";
+import pdfTaxonomyRouter from "./pdf-taxonomy.js";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(r2statusRouter);
 router.use(scanRouter);
 router.use(chessEyeRouter);
 router.use(pgnTaxonomyRouter);
+router.use(pdfTaxonomyRouter);
 
 export default router;

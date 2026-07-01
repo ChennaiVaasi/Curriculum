@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import multer from 'multer';
+import { classifyUploadedPdf } from '../services/pdf-taxonomy.service.js';
+import { exportPdfRows } from '../lib/pgn-taxonomy/pdf-export.js';
+import { summarizeRows, type PdfTaxonomyRow } from '../lib/pgn-taxonomy/pdf-classifier.js';
+const router=Router(); const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:100*1024*1024}});
+const bool=(v:any)=>v===true||v==='true'||v==='1'; const max=(v:any)=>Number.isFinite(Number(v))?Number(v):20;
+router.post('/api/pdf-taxonomy/classify-upload',upload.single('file'),async(req,res)=>{if(!req.file){res.status(400).json({error:'file is required'});return;} res.json(await classifyUploadedPdf(req.file,max(req.body?.maxPages),bool(req.body?.perPage)));});
+router.post('/api/pdf-taxonomy/classify-batch',upload.array('files',50),async(req,res)=>{const files=(req.files||[]) as Express.Multer.File[]; if(!files.length){res.status(400).json({error:'files are required'});return;} const all:PdfTaxonomyRow[]=[]; const warnings:Record<string,string[]>={}; for(const f of files){const r=await classifyUploadedPdf(f,max(req.body?.maxPages),bool(req.body?.perPage)); all.push(...r.rows); if(r.warnings.length) warnings[f.originalname]=r.warnings;} res.json({rows:all,warnings,summary:summarizeRows(all,Object.values(warnings).flat())});});
+router.post('/api/pdf-taxonomy/export',(req,res)=>{const rows=(req.body?.rows||[]) as Record<string,unknown>[]; const format=req.body?.format; if(!['jsonl','csv'].includes(format)){res.status(400).json({error:'format must be jsonl or csv'});return;} const body=exportPdfRows(rows,format); res.setHeader('Content-Type',format==='csv'?'text/csv; charset=utf-8':'application/x-ndjson; charset=utf-8'); res.setHeader('Content-Disposition',`attachment; filename="pdf-taxonomy.${format==='csv'?'csv':'jsonl'}"`); res.send(body);});
+export default router;

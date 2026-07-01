@@ -110,6 +110,9 @@ export function SiteShell({ children }: { children: ReactNode }) {
             <Link className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100" href="/pgn-taxonomy">
               PGN Taxonomy
             </Link>
+            <Link className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100" href="/pdf-taxonomy">
+              PDF Taxonomy
+            </Link>
           </nav>
         </div>
         <GlobalUploadBar />

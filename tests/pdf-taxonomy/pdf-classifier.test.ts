@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { classifyDocumentFromExtracted, classifyPerPageFromExtracted, confidenceScore, inferTitle, SCANNED_WARNING } from '../../artifacts/api-server/src/lib/pgn-taxonomy/pdf-classifier';
+const meta={title:'Najdorf Manual',author:'Coach',raw:{Title:'Najdorf Manual'}};
+assert.equal(inferTitle('/tmp/my-file.pdf',{title:'',author:''},''),'my-file');
+const pages=[{page:1,text:'Sicilian Najdorf English Attack tactics fork sacrifice opening theory '.repeat(20)},{page:2,text:'Rook endgame Lucena king activity.'}];
+const doc=classifyDocumentFromExtracted('Openings/Najdorf.pdf',meta,pages).rows[0];
+assert.equal(doc.title,'Najdorf Manual'); assert.equal(doc.opening_family,'Sicilian Defense'); assert(doc.primary_themes.length>0); assert.equal(doc.pages_examined,2); assert(doc.extracted_chars!>500);
+assert.equal(classifyPerPageFromExtracted('x.pdf',meta,pages).rows.length,2);
+assert(classifyDocumentFromExtracted('scan.pdf',{title:'',author:''},[{page:1,text:''}]).warnings.includes(SCANNED_WARNING));
+assert(confidenceScore(true,false,['Typical plan'],[],100)>confidenceScore(false,false,['Typical plan'],[],100));
+assert(confidenceScore(false,true,['Typical plan'],[],100)>confidenceScore(false,false,['Typical plan'],[],100));
+assert(confidenceScore(false,false,['Typical plan'],[],4000)>confidenceScore(false,false,['Typical plan'],[],100));
+assert.equal(classifyDocumentFromExtracted('x.pdf',meta,pages.slice(0,1)).rows[0].pages_examined,1);
