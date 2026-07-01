@@ -1,0 +1,10 @@
+import { Router } from 'express';
+import multer from 'multer';
+import { classifyPgnText } from '../lib/pgn-taxonomy/classifier.js';
+import { exportRows } from '../lib/pgn-taxonomy/export.js';
+import type { ExportFormat, TaxonomyRow } from '../lib/pgn-taxonomy/types.js';
+const router=Router();const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:50*1024*1024}});
+router.post('/api/pgn-taxonomy/classify-text',(req,res)=>{const {pgnText,sourceFilename}=req.body||{};if(typeof pgnText!=='string'||!pgnText.trim()){res.status(400).json({error:'pgnText is required'});return;}res.json({rows:classifyPgnText(pgnText,sourceFilename||'pasted.pgn')});});
+router.post('/api/pgn-taxonomy/classify-upload',upload.single('file'),(req,res)=>{if(!req.file){res.status(400).json({error:'file is required'});return;}res.json({rows:classifyPgnText(req.file.buffer.toString('utf8'),req.file.originalname)});});
+router.post('/api/pgn-taxonomy/export',(req,res)=>{const rows=(req.body?.rows||[]) as TaxonomyRow[];const format=req.body?.format as ExportFormat;if(!['jsonl','csv'].includes(format)){res.status(400).json({error:'format must be jsonl or csv'});return;}const body=exportRows(rows,format);res.setHeader('Content-Type',format==='csv'?'text/csv; charset=utf-8':'application/x-ndjson; charset=utf-8');res.setHeader('Content-Disposition',`attachment; filename="pgn-taxonomy.${format==='csv'?'csv':'jsonl'}"`);res.send(body);});
+export default router;
