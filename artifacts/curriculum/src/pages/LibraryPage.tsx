@@ -284,9 +284,10 @@ export default function LibraryPage() {
                         </div>
                       )}
                       {microTags.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-stone-400 select-none">tags</span>
                           {microTags.map((t) => (
-                            <span key={t} className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">
+                            <span key={t} className="rounded-full bg-violet-50 border border-violet-200 px-2.5 py-0.5 text-[11px] font-medium text-violet-700">
                               {t}
                             </span>
                           ))}
