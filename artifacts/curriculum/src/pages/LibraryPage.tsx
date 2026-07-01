@@ -261,28 +261,40 @@ export default function LibraryPage() {
                   <h2 className="text-2xl font-semibold tracking-tight">{chapter.title}</h2>
                   <p className="mt-2 text-sm text-stone-600">{chapter.theme}</p>
                 </div>
-                {chapter.taxonomy && (
-                  <>
-                    {chapter.taxonomy.primaryThemes.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {chapter.taxonomy.primaryThemes.map((t) => (
-                          <span key={t} className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[11px] font-medium text-amber-800">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                    {chapter.taxonomy.microTags.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {chapter.taxonomy.microTags.map((t) => (
-                          <span key={t} className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">
-                            {t}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
+                {chapter.taxonomy && (() => {
+                  const { primaryThemes, microTags, openingFamily, openingVariation, domain } = chapter.taxonomy;
+                  const hasOpening = Boolean(openingFamily);
+                  const isTypicalPlanOnly = primaryThemes.length === 1 && primaryThemes[0] === "Typical plan";
+                  const showThemes = isTypicalPlanOnly && hasOpening ? [] : primaryThemes;
+                  const openingLabel = openingVariation ? `${openingFamily} · ${openingVariation}` : openingFamily;
+                  return (
+                    <>
+                      {(showThemes.length > 0 || hasOpening) && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {hasOpening && (
+                            <span className="rounded-full bg-sky-50 border border-sky-200 px-2.5 py-0.5 text-[11px] font-medium text-sky-800">
+                              {openingLabel}
+                            </span>
+                          )}
+                          {showThemes.map((t) => (
+                            <span key={t} className="rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-[11px] font-medium text-amber-800">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      {microTags.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {microTags.map((t) => (
+                            <span key={t} className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">
+                              {t}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
                 <div className="rounded-[1.5rem] bg-stone-50 p-4 text-sm text-stone-700">
                   Primary skill: <span className="font-medium">{chapter.primarySkill}</span>
                 </div>
