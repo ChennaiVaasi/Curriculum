@@ -1,12 +1,38 @@
 import { Router } from 'express';
 import { getCatalog, saveCatalog } from '../lib/catalog.js';
-import { classifyFromPgn, classifyFromPdfBuffer } from '../lib/taxonomy-apply.js';
-import { getBinaryObject, isR2Configured } from '../lib/r2.js';
-import path from 'node:path';
+import { classifyFromPgn } from '../lib/taxonomy-apply.js';
+import { classifyDocumentFromExtracted } from '../lib/pgn-taxonomy/pdf-classifier.js';
+import type { ChapterTaxonomy } from '../lib/types.js';
 
 const router = Router();
 
-router.post('/api/catalog/reclassify', async (req, res) => {
+function classifyPdfFromMeta(objectKey: string, title: string): ChapterTaxonomy | null {
+  try {
+    const result = classifyDocumentFromExtracted(
+      objectKey,
+      { title, author: '' },
+      [],
+    );
+    if (!result.rows.length) return null;
+    const row = result.rows[0];
+    return {
+      phase: row.phase,
+      domain: row.domain,
+      openingFamily: row.opening_family ?? '',
+      openingVariation: row.opening_variation ?? '',
+      primaryThemes: row.primary_themes,
+      microTags: row.micro_tags,
+      structures: row.structures,
+      materialTags: row.material_tags,
+      confidence: row.confidence,
+      classifiedAt: new Date().toISOString(),
+    };
+  } catch {
+    return null;
+  }
+}
+
+router.post('/catalog/reclassify', async (req, res) => {
   try {
     const { ids } = req.body as { ids?: string[] };
     const catalog = await getCatalog();
@@ -22,33 +48,26 @@ router.post('/api/catalog/reclassify', async (req, res) => {
     for (const chapter of targets) {
       try {
         if (chapter.fileType === 'pgn' && chapter.pgn?.trim()) {
-          const tax = classifyFromPgn(chapter.pgn, chapter.sourceFilename || chapter.originalFilename || 'game.pgn');
-          if (tax) {
-            chapter.taxonomy = tax;
-            updated++;
-          }
-        } else if ((chapter.fileType === 'pdf' || !chapter.fileType) && chapter.objectKey) {
-          if (!isR2Configured()) {
-            errors.push(`${chapter.id}: R2 not configured, cannot download PDF for classification.`);
-            failed++;
-            continue;
-          }
-          const { bytes } = await getBinaryObject(chapter.objectKey);
-          const buf = Buffer.from(bytes);
-          const filename = path.basename(chapter.objectKey);
-          const tax = await classifyFromPdfBuffer(buf, filename);
+          const tax = classifyFromPgn(
+            chapter.pgn,
+            chapter.sourceFilename || chapter.originalFilename || 'game.pgn',
+          );
           if (tax) {
             chapter.taxonomy = tax;
             updated++;
           } else {
-            errors.push(`${chapter.id}: PDF classification returned no results.`);
             failed++;
           }
-        } else if (chapter.pgn?.trim()) {
-          const tax = classifyFromPgn(chapter.pgn, chapter.originalFilename || 'game.pgn');
+        } else {
+          const tax = classifyPdfFromMeta(
+            chapter.objectKey || chapter.originalFilename || chapter.title,
+            chapter.title,
+          );
           if (tax) {
             chapter.taxonomy = tax;
             updated++;
+          } else {
+            failed++;
           }
         }
       } catch (err: any) {
