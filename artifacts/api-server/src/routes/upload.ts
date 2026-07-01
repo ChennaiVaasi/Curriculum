@@ -121,20 +121,26 @@ router.post("/upload", upload.array("files"), async (req, res) => {
           const matchedFile = files.find((f) => f.originalname === entry.filename);
           if (matchedFile) {
             try {
-              const tax = await classifyFromPdfBuffer(matchedFile.buffer, matchedFile.originalname);
-              if (tax) record.taxonomy = tax;
+              const classified = await classifyFromPdfBuffer(matchedFile.buffer, matchedFile.originalname);
+              if (classified) {
+                record.taxonomy = classified.taxonomy;
+                if (classified.textPreview) record.textPreview = classified.textPreview;
+              }
             } catch { /* non-fatal */ }
           }
         }
       }
-      // Save taxonomy updates back to catalog
+      // Save taxonomy + textPreview updates back to catalog
       if (result.records.some((r) => r.taxonomy)) {
         const { getCatalog, saveCatalog } = await import("../lib/catalog.js");
         const catalog = await getCatalog();
         for (const updated of result.records) {
           if (updated.taxonomy) {
             const existing = catalog.chapters.find((c) => c.id === updated.id);
-            if (existing) existing.taxonomy = updated.taxonomy;
+            if (existing) {
+              existing.taxonomy = updated.taxonomy;
+              if (updated.textPreview) existing.textPreview = updated.textPreview;
+            }
           }
         }
         await saveCatalog(catalog);

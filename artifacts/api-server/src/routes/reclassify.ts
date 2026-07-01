@@ -1,12 +1,21 @@
 import { Router } from 'express';
 import { getCatalog, saveCatalog } from '../lib/catalog.js';
-import { classifyFromPgn } from '../lib/taxonomy-apply.js';
+import { classifyFromPgn, classifyFromPdfText } from '../lib/taxonomy-apply.js';
 import { classifyDocumentFromExtracted } from '../lib/pgn-taxonomy/pdf-classifier.js';
 import type { ChapterTaxonomy } from '../lib/types.js';
 
 const router = Router();
 
-function classifyPdfFromMeta(objectKey: string, title: string): ChapterTaxonomy | null {
+function classifyPdfChapter(
+  objectKey: string,
+  title: string,
+  textPreview?: string,
+): ChapterTaxonomy | null {
+  // If we have stored first-page text, feed it to the classifier for better results
+  if (textPreview?.trim()) {
+    return classifyFromPdfText(objectKey, title, textPreview);
+  }
+  // Fallback: classify from path + title metadata only
   try {
     const result = classifyDocumentFromExtracted(
       objectKey,
@@ -47,28 +56,28 @@ router.post('/catalog/reclassify', async (req, res) => {
 
     for (const chapter of targets) {
       try {
+        let tax: ChapterTaxonomy | null = null;
+
         if (chapter.fileType === 'pgn' && chapter.pgn?.trim()) {
-          const tax = classifyFromPgn(
+          // PGN: use full game text (headers + moves + annotations)
+          tax = classifyFromPgn(
             chapter.pgn,
             chapter.sourceFilename || chapter.originalFilename || 'game.pgn',
           );
-          if (tax) {
-            chapter.taxonomy = tax;
-            updated++;
-          } else {
-            failed++;
-          }
         } else {
-          const tax = classifyPdfFromMeta(
+          // PDF: use stored first-page text when available, else path+title
+          tax = classifyPdfChapter(
             chapter.objectKey || chapter.originalFilename || chapter.title,
             chapter.title,
+            chapter.textPreview,
           );
-          if (tax) {
-            chapter.taxonomy = tax;
-            updated++;
-          } else {
-            failed++;
-          }
+        }
+
+        if (tax) {
+          chapter.taxonomy = tax;
+          updated++;
+        } else {
+          failed++;
         }
       } catch (err: any) {
         errors.push(`${chapter.id}: ${err?.message || String(err)}`);

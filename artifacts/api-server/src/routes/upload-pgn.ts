@@ -119,6 +119,8 @@ router.post("/upload-pgn", upload.array("files"), async (req, res) => {
         try {
           const tax = classifyFromPgn(parsedGame.raw, file.originalname);
           if (tax) record.taxonomy = tax;
+          // Store a compact text preview for future reclassification
+          record.textPreview = parsedGame.raw.slice(0, 1500);
         } catch { /* non-fatal */ }
         catalog.chapters.push(record);
         importResults.push({

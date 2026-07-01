@@ -50,6 +50,7 @@ export type ChapterRecord = {
   importStatus?: "success" | "failed" | "duplicate" | "warning";
   pgnFingerprint?: string;
   taxonomy?: ChapterTaxonomy;
+  textPreview?: string;
 };
 
 export type UploadPayload = {
