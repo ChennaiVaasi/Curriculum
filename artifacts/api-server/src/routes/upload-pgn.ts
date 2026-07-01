@@ -10,6 +10,7 @@ import { isR2Configured, uploadPgnObject } from "../lib/r2.js";
 import type { UploadPayload } from "../lib/types.js";
 import { makeId, slugify, splitCsv } from "../lib/utils.js";
 import { parseImportGames } from "../lib/pgn-import.js";
+import { classifyFromPgn } from "../lib/taxonomy-apply.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -115,6 +116,10 @@ router.post("/upload-pgn", upload.array("files"), async (req, res) => {
         record.uploadBatchId = uploadBatchId;
         record.importedAt = new Date().toISOString();
         record.importStatus = parsedGame.warnings.length ? "warning" : "success";
+        try {
+          const tax = classifyFromPgn(parsedGame.raw, file.originalname);
+          if (tax) record.taxonomy = tax;
+        } catch { /* non-fatal */ }
         catalog.chapters.push(record);
         importResults.push({
           index,

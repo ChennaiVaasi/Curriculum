@@ -15,6 +15,19 @@ export type BookRecord = {
   updatedAt: string;
 };
 
+export type ChapterTaxonomy = {
+  phase: string;
+  domain: string;
+  openingFamily: string;
+  openingVariation: string;
+  primaryThemes: string[];
+  microTags: string[];
+  structures: string[];
+  materialTags: string[];
+  confidence: number;
+  classifiedAt: string;
+};
+
 export type ChapterRecord = {
   id: string;
   bookId: string;
@@ -36,6 +49,7 @@ export type ChapterRecord = {
   importedAt?: string;
   importStatus?: "success" | "failed" | "duplicate" | "warning";
   pgnFingerprint?: string;
+  taxonomy?: ChapterTaxonomy;
 };
 
 export type UploadPayload = {

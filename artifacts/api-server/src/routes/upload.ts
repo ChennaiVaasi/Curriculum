@@ -4,6 +4,7 @@ import { createAndStoreChapters } from "../lib/catalog.js";
 import { isR2Configured, uploadPdfObject } from "../lib/r2.js";
 import type { UploadPayload } from "../lib/types.js";
 import { bookTitleFromFilename, makeId, slugify, splitCsv } from "../lib/utils.js";
+import { classifyFromPdfBuffer } from "../lib/taxonomy-apply.js";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -111,6 +112,34 @@ router.post("/upload", upload.array("files"), async (req, res) => {
           fileSize,
         })),
       );
+
+      // Auto-classify each PDF via the taxonomy engine
+      for (let i = 0; i < result.records.length; i++) {
+        const record = result.records[i];
+        const entry = groupFiles[i];
+        if (entry) {
+          const matchedFile = files.find((f) => f.originalname === entry.filename);
+          if (matchedFile) {
+            try {
+              const tax = await classifyFromPdfBuffer(matchedFile.buffer, matchedFile.originalname);
+              if (tax) record.taxonomy = tax;
+            } catch { /* non-fatal */ }
+          }
+        }
+      }
+      // Save taxonomy updates back to catalog
+      if (result.records.some((r) => r.taxonomy)) {
+        const { getCatalog, saveCatalog } = await import("../lib/catalog.js");
+        const catalog = await getCatalog();
+        for (const updated of result.records) {
+          if (updated.taxonomy) {
+            const existing = catalog.chapters.find((c) => c.id === updated.id);
+            if (existing) existing.taxonomy = updated.taxonomy;
+          }
+        }
+        await saveCatalog(catalog);
+      }
+
       totalChapters += result.records.length;
       bookTitles.push(result.book.title);
     }

@@ -12,6 +12,7 @@ import scanRouter from "./scan.js";
 import chessEyeRouter from "./chess-eye.js";
 import pgnTaxonomyRouter from "./pgn-taxonomy.js";
 import pdfTaxonomyRouter from "./pdf-taxonomy.js";
+import reclassifyRouter from "./reclassify.js";
 
 const router: IRouter = Router();
 
@@ -28,5 +29,6 @@ router.use(scanRouter);
 router.use(chessEyeRouter);
 router.use(pgnTaxonomyRouter);
 router.use(pdfTaxonomyRouter);
+router.use(reclassifyRouter);
 
 export default router;
