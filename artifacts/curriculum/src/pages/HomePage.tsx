@@ -2,10 +2,12 @@ import { Link } from "wouter";
 import { useEffect, useState } from "react";
 import type { Catalog } from "@/lib/types";
 import { humanBytes } from "@/lib/utils";
+import { FEN_NOTEBOOK_KEY } from "@/lib/fen";
 
 export default function HomePage() {
   const [catalog, setCatalog] = useState<Catalog>({ books: [], chapters: [] });
   const [loading, setLoading] = useState(true);
+  const [pgnCount, setPgnCount] = useState(0);
 
   useEffect(() => {
     fetch("/api/catalog")
@@ -13,6 +15,14 @@ export default function HomePage() {
       .then((data: Catalog) => setCatalog(data))
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    try {
+      const stored = localStorage.getItem(FEN_NOTEBOOK_KEY);
+      const entries = stored ? JSON.parse(stored) : [];
+      setPgnCount(Array.isArray(entries) ? entries.length : 0);
+    } catch {
+      setPgnCount(0);
+    }
   }, []);
 
   const totalBytes = catalog.chapters.reduce((sum, chapter) => sum + chapter.fileSize, 0);
@@ -46,7 +56,7 @@ export default function HomePage() {
 
         <div className="grid gap-4 rounded-[2rem] bg-white/6 p-5">
           {[
-            { label: "Books", value: loading ? "…" : String(catalog.books.length) },
+            { label: "PGNs", value: String(pgnCount) },
             { label: "Chapters", value: loading ? "…" : String(catalog.chapters.length) },
             { label: "Storage tracked", value: loading ? "…" : humanBytes(totalBytes) },
           ].map((item) => (
