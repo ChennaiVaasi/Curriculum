@@ -1,7 +1,27 @@
 import { useState } from "react";
-import { useUpload, type PgnUploadMetadata, type UploadMetadata } from "@/context/UploadContext";
+import {
+  useUpload,
+  type PgnUploadMetadata,
+  type UploadMetadata,
+} from "@/context/UploadContext";
+import {
+  appendImportCandidates,
+  candidatesFromPgnText,
+  makePositionId,
+  readImportCandidates,
+  isValidFen,
+  type ImportCandidate,
+} from "@/lib/position-workflow";
+import { extractFens } from "@/lib/fen";
 
-const LEVELS = ["0-800", "800-1200", "1200-1400", "1400-1700", "1700-2000", "2000+"];
+const LEVELS = [
+  "0-800",
+  "800-1200",
+  "1200-1400",
+  "1400-1700",
+  "1700-2000",
+  "2000+",
+];
 
 function bookTitleFromFilename(filename: string): string {
   const withoutExt = filename.replace(/\.[^.]+$/, "");
@@ -35,12 +55,24 @@ const pgnDefaults: PgnUploadMetadata = {
   notes: "",
 };
 
-function StatusBadge({ status, progress }: { status: string; progress: number }) {
+function StatusBadge({
+  status,
+  progress,
+}: {
+  status: string;
+  progress: number;
+}) {
   if (status === "done") {
     return (
       <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">
         <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
-          <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+          <path
+            d="M2 6l3 3 5-5"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
         </svg>
         Done
       </span>
@@ -50,7 +82,12 @@ function StatusBadge({ status, progress }: { status: string; progress: number })
     return (
       <span className="flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700">
         <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none">
-          <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <path
+            d="M2 2l8 8M10 2l-8 8"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
         </svg>
         Error
       </span>
@@ -60,8 +97,20 @@ function StatusBadge({ status, progress }: { status: string; progress: number })
     return (
       <span className="flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
         <svg className="h-3 w-3 animate-spin" viewBox="0 0 12 12" fill="none">
-          <circle cx="6" cy="6" r="4.5" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.3" />
-          <path d="M6 1.5A4.5 4.5 0 0 1 10.5 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <circle
+            cx="6"
+            cy="6"
+            r="4.5"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeOpacity="0.3"
+          />
+          <path
+            d="M6 1.5A4.5 4.5 0 0 1 10.5 6"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+          />
         </svg>
         {progress}%
       </span>
@@ -79,13 +128,18 @@ type PgnGroup = { folderName: string; files: File[] };
 function getPgnGroups(files: File[]): PgnGroup[] {
   const map = new Map<string, File[]>();
   for (const f of files) {
-    const rel = (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
+    const rel =
+      (f as File & { webkitRelativePath?: string }).webkitRelativePath ||
+      f.name;
     const parts = rel.split("/");
     const folder = parts.length > 1 ? parts[0] : "PGN";
     if (!map.has(folder)) map.set(folder, []);
     map.get(folder)!.push(f);
   }
-  return Array.from(map.entries()).map(([folderName, files]) => ({ folderName, files }));
+  return Array.from(map.entries()).map(([folderName, files]) => ({
+    folderName,
+    files,
+  }));
 }
 
 export function UploadForm() {
@@ -103,7 +157,8 @@ export function UploadForm() {
 
   function handlePdfFilesChange(event: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(event.target.files || []).filter(
-      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+      (f) =>
+        f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
     );
     setPickedPdfs((prev) => {
       const names = new Set(prev.map((f) => f.name));
@@ -115,7 +170,9 @@ export function UploadForm() {
     }
   }
 
-  async function handlePgnFileAttachChange(event: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePgnFileAttachChange(
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) {
     const file = event.target.files?.[0];
     if (!file) return;
     const text = await file.text();
@@ -130,7 +187,9 @@ export function UploadForm() {
     setPickedPgns((prev) => {
       const keys = new Set(
         prev.map(
-          (f) => (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
+          (f) =>
+            (f as File & { webkitRelativePath?: string }).webkitRelativePath ||
+            f.name,
         ),
       );
       return [
@@ -138,25 +197,104 @@ export function UploadForm() {
         ...selected.filter(
           (f) =>
             !keys.has(
-              (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name,
+              (f as File & { webkitRelativePath?: string })
+                .webkitRelativePath || f.name,
             ),
         ),
       ];
     });
   }
 
+  function createPdfImportCandidates() {
+    const existingFens = new Set(
+      readImportCandidates()
+        .map((candidate) => candidate.fen)
+        .filter(Boolean),
+    );
+    const tags = [
+      pdfForm.level,
+      pdfForm.theme,
+      pdfForm.primarySkill,
+      ...pdfForm.secondarySkills.split(","),
+    ]
+      .map((tag) => tag.trim())
+      .filter(Boolean);
+    const fens = extractFens(pdfForm.pgn);
+    const candidates = pickedPdfs.flatMap<ImportCandidate>((file) => {
+      const title = chapterTitleFromFilename(file.name);
+      if (fens.length === 0) {
+        return [
+          {
+            id: makePositionId("cand"),
+            title,
+            fen: "",
+            pgn: pdfForm.pgn || undefined,
+            tags,
+            sourceType: "pdf",
+            sourceName: file.name,
+            importedAt: new Date().toISOString(),
+            validationStatus: "missing-fen",
+            duplicate: false,
+          },
+        ];
+      }
+      return fens.map((fen, index) => {
+        const duplicate = existingFens.has(fen);
+        existingFens.add(fen);
+        return {
+          id: makePositionId("cand"),
+          title: fens.length > 1 ? `${title} #${index + 1}` : title,
+          fen,
+          pgn: pdfForm.pgn || undefined,
+          tags,
+          sourceType: "pdf",
+          sourceName: file.name,
+          importedAt: new Date().toISOString(),
+          validationStatus: isValidFen(fen) ? "valid" : "invalid",
+          duplicate,
+        };
+      });
+    });
+    appendImportCandidates(candidates);
+  }
+
+  async function createPgnImportCandidates(groups: PgnGroup[]) {
+    const batches = await Promise.all(
+      groups.flatMap((group) =>
+        group.files.map(async (file) => {
+          const tags = [
+            pgnForm.level,
+            pgnForm.theme,
+            pgnForm.primarySkill,
+            ...pgnForm.secondarySkills.split(","),
+          ]
+            .map((tag) => tag.trim())
+            .filter(Boolean);
+          return candidatesFromPgnText(
+            await file.text(),
+            `${group.folderName}/${file.name}`,
+            tags,
+          );
+        }),
+      ),
+    );
+    appendImportCandidates(batches.flat() as ImportCandidate[]);
+  }
+
   function handlePdfSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!pickedPdfs.length || isRunning) return;
+    createPdfImportCandidates();
     startUpload(pickedPdfs, pdfForm);
     setPickedPdfs([]);
     setPdfForm(pdfDefaults);
   }
 
-  function handlePgnSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function handlePgnSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!pickedPgns.length || isRunning) return;
     const groups = getPgnGroups(pickedPgns);
+    await createPgnImportCandidates(groups);
     startPgnUpload(groups, pgnForm);
     setPickedPgns([]);
     setPgnForm(pgnDefaults);
@@ -168,16 +306,22 @@ export function UploadForm() {
   const pgnField = (key: keyof PgnUploadMetadata, value: string) =>
     setPgnForm((cur) => ({ ...cur, [key]: value }));
 
-  const { files: activeFiles, doneCount, errorCount, isRunning: jobRunning } = state;
+  const {
+    files: activeFiles,
+    doneCount,
+    errorCount,
+    isRunning: jobRunning,
+  } = state;
   const total = activeFiles.length;
-  const allDone = hasActiveJob && !jobRunning && doneCount + errorCount === total;
-  const overallPct = total > 0 ? Math.round(((doneCount + errorCount) / total) * 100) : 0;
+  const allDone =
+    hasActiveJob && !jobRunning && doneCount + errorCount === total;
+  const overallPct =
+    total > 0 ? Math.round(((doneCount + errorCount) / total) * 100) : 0;
 
   const pgnGroups = getPgnGroups(pickedPgns);
 
   return (
     <div className="grid gap-6">
-
       {hasActiveJob && (
         <div className="rounded-[2rem] border border-stone-200 bg-white p-6 shadow-[0_24px_60px_-32px_rgba(41,37,36,0.25)]">
           <div className="mb-4 flex items-center justify-between gap-4">
@@ -331,7 +475,9 @@ export function UploadForm() {
               </div>
               <p className="text-xs text-stone-500">
                 Name files as{" "}
-                <code className="rounded bg-stone-200 px-1 py-0.5">Book Title - Chapter Title.pdf</code>{" "}
+                <code className="rounded bg-stone-200 px-1 py-0.5">
+                  Book Title - Chapter Title.pdf
+                </code>{" "}
                 — the book is detected per file automatically.
               </p>
             </div>
@@ -339,7 +485,8 @@ export function UploadForm() {
             {pickedPdfs.length > 0 && (
               <div className="rounded-[1.5rem] border border-stone-200 bg-stone-50 px-5 py-4">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-stone-400">
-                  {pickedPdfs.length} file{pickedPdfs.length !== 1 ? "s" : ""} queued
+                  {pickedPdfs.length} file{pickedPdfs.length !== 1 ? "s" : ""}{" "}
+                  queued
                 </p>
                 <ul className="grid gap-1.5 max-h-64 overflow-y-auto pr-1">
                   {pickedPdfs.map((file, i) => (
@@ -356,7 +503,11 @@ export function UploadForm() {
                       <button
                         type="button"
                         aria-label="Remove"
-                        onClick={() => setPickedPdfs((prev) => prev.filter((_, j) => j !== i))}
+                        onClick={() =>
+                          setPickedPdfs((prev) =>
+                            prev.filter((_, j) => j !== i),
+                          )
+                        }
                         className="text-stone-400 transition hover:text-stone-700"
                       >
                         ✕
@@ -370,7 +521,9 @@ export function UploadForm() {
             <div className="grid gap-4 md:grid-cols-2">
               <label className="grid gap-2 text-sm font-medium md:col-span-2">
                 Book title override{" "}
-                <span className="font-normal text-stone-400">(optional — leave blank to detect per file)</span>
+                <span className="font-normal text-stone-400">
+                  (optional — leave blank to detect per file)
+                </span>
                 <input
                   className="rounded-2xl border border-stone-300 bg-stone-50 px-4 py-3 outline-none transition focus:border-stone-500 focus:bg-white"
                   value={pdfForm.bookTitle}
@@ -387,7 +540,9 @@ export function UploadForm() {
                   onChange={(e) => pdfField("level", e.target.value)}
                 >
                   {LEVELS.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -439,7 +594,8 @@ export function UploadForm() {
                 <div>
                   <p className="text-sm font-medium">PGN</p>
                   <p className="mt-0.5 text-xs text-stone-500">
-                    Upload a .pgn file or paste PGN to attach it to every chapter in this upload.
+                    Upload a .pgn file or paste PGN to attach it to every
+                    chapter in this upload.
                   </p>
                 </div>
                 <label className="cursor-pointer rounded-full border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 transition hover:bg-stone-100">
@@ -457,7 +613,9 @@ export function UploadForm() {
                 className="rounded-[1.25rem] border border-stone-300 bg-white px-4 py-3 text-xs leading-6 outline-none transition focus:border-stone-500"
                 value={pdfForm.pgn}
                 onChange={(e) => pdfField("pgn", e.target.value)}
-                placeholder={'Paste PGN here, e.g. [Event "Model game"] 1. e4 e5 ...'}
+                placeholder={
+                  'Paste PGN here, e.g. [Event "Model game"] 1. e4 e5 ...'
+                }
               />
               {pdfForm.pgn?.trim() && (
                 <button
@@ -528,20 +686,33 @@ export function UploadForm() {
                 )}
               </div>
               <p className="text-xs text-stone-500">
-                Each folder becomes a book. Each <code className="rounded bg-stone-200 px-1 py-0.5">.pgn</code> file inside becomes a chapter.
+                Each folder becomes a book. Each{" "}
+                <code className="rounded bg-stone-200 px-1 py-0.5">.pgn</code>{" "}
+                file inside becomes a chapter.
               </p>
             </div>
 
             {pgnGroups.length > 0 && (
               <div className="grid gap-3">
                 {pgnGroups.map(({ folderName, files }) => (
-                  <div key={folderName} className="rounded-[1.5rem] border border-stone-200 bg-stone-50 px-5 py-4">
+                  <div
+                    key={folderName}
+                    className="rounded-[1.5rem] border border-stone-200 bg-stone-50 px-5 py-4"
+                  >
                     <div className="mb-3 flex items-center gap-2">
-                      <svg className="h-4 w-4 shrink-0 text-stone-400" viewBox="0 0 16 16" fill="currentColor">
+                      <svg
+                        className="h-4 w-4 shrink-0 text-stone-400"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
                         <path d="M1.75 1A1.75 1.75 0 0 0 0 2.75v10.5C0 14.216.784 15 1.75 15h12.5A1.75 1.75 0 0 0 16 13.25v-8.5A1.75 1.75 0 0 0 14.25 3H7.5a.25.25 0 0 1-.2-.1l-.9-1.2C6.07 1.26 5.55 1 5 1H1.75Z" />
                       </svg>
-                      <p className="text-xs font-semibold text-stone-700">{folderName}</p>
-                      <span className="ml-auto text-xs text-stone-400">{files.length} file{files.length !== 1 ? "s" : ""}</span>
+                      <p className="text-xs font-semibold text-stone-700">
+                        {folderName}
+                      </p>
+                      <span className="ml-auto text-xs text-stone-400">
+                        {files.length} file{files.length !== 1 ? "s" : ""}
+                      </span>
                     </div>
                     <ul className="grid gap-1.5 max-h-48 overflow-y-auto pr-1">
                       {files.map((file, i) => (
@@ -563,8 +734,16 @@ export function UploadForm() {
                                 const filtered = prev.filter((_, j) => {
                                   const prevGroups = getPgnGroups(prev);
                                   const groupOffset = prevGroups
-                                    .slice(0, prevGroups.findIndex((g) => g.folderName === folderName))
-                                    .reduce((sum, g) => sum + g.files.length, 0);
+                                    .slice(
+                                      0,
+                                      prevGroups.findIndex(
+                                        (g) => g.folderName === folderName,
+                                      ),
+                                    )
+                                    .reduce(
+                                      (sum, g) => sum + g.files.length,
+                                      0,
+                                    );
                                   return j !== groupOffset + i;
                                 });
                                 return filtered;
@@ -591,7 +770,9 @@ export function UploadForm() {
                   onChange={(e) => pgnField("level", e.target.value)}
                 >
                   {LEVELS.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
                   ))}
                 </select>
               </label>
