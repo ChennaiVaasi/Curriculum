@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Chessboard } from "react-chessboard";
 import { FEN_NOTEBOOK_KEY, type NotebookFen } from "@/lib/fen";
 import { buildPositions, normalizePgnDate, parsePgnFile, type ParsedPgnGame } from "@/lib/pgn-parser";
@@ -14,6 +14,36 @@ function badgeClass(status: string) {
   return "bg-emerald-100 text-emerald-700";
 }
 function gameLabel(game: ParsedPgnGame, index: number) { return `${index + 1}. ${game.headers.White ?? "?"} – ${game.headers.Black ?? "?"}`; }
+
+function cleanComment(raw: string): string {
+  return raw.replace(/\[%clk\s+[^\]]+\]/g, "").replace(/\[%eval\s+[^\]]+\]/g, "").replace(/\[%[^\]]+\]/g, "").trim();
+}
+
+function MoveList({ moves, ply, onPly }: { moves: ParsedPgnGame["moves"]; ply: number; onPly: (p: number) => void }) {
+  const rows: React.ReactNode[] = [];
+  let i = 0;
+  while (i < moves.length) {
+    const w = moves[i];
+    const b = moves[i + 1] && moves[i + 1].color === "b" ? moves[i + 1] : undefined;
+    const wComment = w.comment ? cleanComment(w.comment) : "";
+    const bComment = b?.comment ? cleanComment(b.comment) : "";
+    rows.push(
+      <div key={w.ply} className="grid grid-cols-[2rem_1fr_1fr] gap-x-2 items-baseline">
+        <span className="text-stone-400 font-mono text-xs pt-1">{w.moveNumber}.</span>
+        <button onClick={() => onPly(w.ply)} className={`text-left font-mono rounded px-1 ${ply === w.ply ? "bg-amber-100" : "hover:bg-stone-50"}`}>{w.san}</button>
+        {b ? <button onClick={() => onPly(b.ply)} className={`text-left font-mono rounded px-1 ${ply === b.ply ? "bg-amber-100" : "hover:bg-stone-50"}`}>{b.san}</button> : <span />}
+      </div>
+    );
+    if (wComment) rows.push(
+      <p key={`${w.ply}-c`} className="col-span-3 ml-8 text-xs leading-relaxed text-stone-600 italic bg-amber-50 rounded-lg px-3 py-1.5 my-0.5">{wComment}</p>
+    );
+    if (bComment) rows.push(
+      <p key={`${b!.ply}-c`} className="col-span-3 ml-8 text-xs leading-relaxed text-stone-600 italic bg-amber-50 rounded-lg px-3 py-1.5 my-0.5">{bComment}</p>
+    );
+    i += b ? 2 : 1;
+  }
+  return <div className="grid gap-0.5">{rows}</div>;
+}
 
 export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
   const [copied, setCopied] = useState(false);
@@ -105,7 +135,7 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
         <section className="rounded-[1.5rem] border border-stone-200 bg-white">
           <div className="grid grid-cols-4 border-b text-xs font-semibold">{(["moves", "headers", "raw", "errors"] as Tab[]).map((t) => <button key={t} onClick={() => setTab(t)} className={`px-2 py-3 capitalize ${tab === t ? "bg-stone-900 text-amber-50" : "text-stone-500"}`}>{t}</button>)}</div>
           <div className="max-h-[640px] overflow-auto p-4 text-sm">
-            {tab === "moves" && <div className="grid grid-cols-[auto_1fr_1fr] gap-x-3 gap-y-1 font-mono">{Array.from({ length: Math.ceil(game.moves.length / 2) }, (_, row) => { const w = game.moves[row * 2]; const b = game.moves[row * 2 + 1]; return [<span key={`${row}-n`} className="text-stone-400">{row + 1}.</span>, <button key={`${row}-w`} onClick={() => setPly(w?.ply ?? 0)} className={`text-left ${ply === w?.ply ? "bg-amber-100" : ""}`}>{w?.san} {w?.clock && <span className="text-[10px] text-stone-400">{w.clock}</span>}</button>, <button key={`${row}-b`} onClick={() => b && setPly(b.ply)} className={`text-left ${ply === b?.ply ? "bg-amber-100" : ""}`}>{b?.san} {b?.clock && <span className="text-[10px] text-stone-400">{b.clock}</span>}</button>]; })}</div>}
+            {tab === "moves" && <MoveList moves={game.moves} ply={ply} onPly={setPly} />}
             {tab === "headers" && <dl className="grid grid-cols-2 gap-3">{["Event","Site","Date","Round","White","Black","Result","WhiteElo","BlackElo","WhiteFideId","BlackFideId","ECO","Opening","TimeControl"].map((k) => <div key={k}><dt className="text-[10px] uppercase tracking-wider text-stone-400">{k}</dt><dd className="font-medium text-stone-800">{gValue(game, k)}</dd></div>)}</dl>}
             {tab === "raw" && <pre className="whitespace-pre-wrap break-words text-xs leading-6">{game.raw}</pre>}
             {tab === "errors" && <div className="grid gap-2">{[...game.errors, ...game.warnings].length ? [...game.errors, ...game.warnings].map((m, i) => <p key={i} className="rounded-xl bg-stone-50 p-3 text-stone-700">{m}</p>) : <p className="text-stone-500">No parser errors or warnings.</p>}</div>}
