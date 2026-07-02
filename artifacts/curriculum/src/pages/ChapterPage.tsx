@@ -5,6 +5,7 @@ import { humanBytes } from "@/lib/utils";
 import { ChapterChat } from "@/components/ChapterChat";
 import { PdfViewer } from "@/components/PdfViewer";
 import { PgnViewer } from "@/components/PgnViewer";
+import { SavePositionModal, type SavePositionPayload } from "@/components/SavePositionModal";
 
 type ChapterResult = {
   chapter: ChapterRecord;
@@ -17,6 +18,7 @@ export default function ChapterPage() {
   const [result, setResult] = useState<ChapterResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [savePayload, setSavePayload] = useState<SavePositionPayload | null>(null);
 
   useEffect(() => {
     fetch(`/api/chapters/${params.chapterId}`)
@@ -98,15 +100,28 @@ export default function ChapterPage() {
               chapterId={chapter.id}
               chapterTitle={chapter.title}
               bookTitle={book?.title}
+              onSavePosition={setSavePayload}
             />
           ) : (
-            <PdfViewer
-              url={`/api/files/${chapter.id}`}
-              title={chapter.title}
-              chapterId={chapter.id}
-              chapterTitle={chapter.title}
-              bookTitle={book?.title}
-            />
+            <>
+              <PdfViewer
+                url={`/api/files/${chapter.id}`}
+                title={chapter.title}
+                chapterId={chapter.id}
+                chapterTitle={chapter.title}
+                bookTitle={book?.title}
+              />
+              <div className="border-t border-stone-100 px-6 py-4">
+                <button
+                  onClick={() =>
+                    setSavePayload({ fen: "", pgn: undefined, sourceMessage: `From chapter: ${chapter.title}` })
+                  }
+                  className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50"
+                >
+                  Save a position to notebook
+                </button>
+              </div>
+            </>
           )}
         </section>
 
@@ -114,6 +129,16 @@ export default function ChapterPage() {
           <ChapterChat key={chapter.id} chapterId={chapter.id} chapterTitle={chapter.title} bookTitle={book?.title} />
         </div>
       </div>
+
+      {savePayload && (
+        <SavePositionModal
+          payload={savePayload}
+          chapterId={chapter.id}
+          chapterTitle={chapter.title}
+          bookTitle={book?.title}
+          onClose={() => setSavePayload(null)}
+        />
+      )}
     </div>
   );
 }

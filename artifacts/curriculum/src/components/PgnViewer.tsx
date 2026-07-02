@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Chessboard } from "react-chessboard";
-import { FEN_NOTEBOOK_KEY, type NotebookFen } from "@/lib/fen";
 import { buildPositions, normalizePgnDate, parsePgnFile, type ParsedPgnGame } from "@/lib/pgn-parser";
 
-type Props = { pgn: string; chapterId?: string; chapterTitle?: string; bookTitle?: string };
+import type { SavePositionPayload } from "@/components/SavePositionModal";
+
+type Props = { pgn: string; chapterId?: string; chapterTitle?: string; bookTitle?: string; onSavePosition?: (payload: SavePositionPayload) => void };
 
 type Tab = "moves" | "headers" | "raw" | "errors";
 
@@ -45,9 +46,8 @@ function MoveList({ moves, ply, onPly }: { moves: ParsedPgnGame["moves"]; ply: n
   return <div className="grid gap-0.5">{rows}</div>;
 }
 
-export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
+export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle, onSavePosition }: Props) {
   const [copied, setCopied] = useState(false);
-  const [saveStatus, setSaveStatus] = useState("");
   const [gameIndex, setGameIndex] = useState(0);
   const [ply, setPly] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -98,16 +98,13 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }
-  function saveFenToNotebook() {
-    if (!chapterId || !chapterTitle || !current) return;
-    try {
-      const saved = window.localStorage.getItem(FEN_NOTEBOOK_KEY);
-      const notebook = saved ? (JSON.parse(saved) as NotebookFen[]) : [];
-      if (notebook.find((e) => e.fen === current.fen && e.chapterId === chapterId)) return setSaveStatus("Already in notebook.");
-      const entry: NotebookFen = { id: `${chapterId}-pgn-${Date.now()}`, fen: current.fen, chapterId, chapterTitle, bookTitle, sourceMessage: `${gameLabel(game, gameIndex)} ply ${current.ply}`, savedAt: new Date().toISOString() };
-      window.localStorage.setItem(FEN_NOTEBOOK_KEY, JSON.stringify([entry, ...notebook]));
-      setSaveStatus("Saved to notebook.");
-    } catch { setSaveStatus("Could not save."); }
+  function triggerSavePosition() {
+    if (!current) return;
+    onSavePosition?.({
+      fen: current.fen,
+      pgn: game.raw,
+      sourceMessage: `${gameLabel(game, gameIndex)} ply ${current.ply}`,
+    });
   }
 
   return (
@@ -115,7 +112,7 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
       <section className="grid gap-3 rounded-[1.5rem] border border-stone-200 bg-white p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-sm font-semibold text-stone-800">PGN import summary</p><p className="text-xs text-stone-500">Total {games.length} · Imported {summary.success} · Warnings {summary.warning} · Failed {summary.failed} · Duplicates handled on upload</p></div>
-          <div className="flex flex-wrap gap-2"><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={copyPgn}>{copied ? "Copied!" : "Copy PGN"}</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={downloadGamePgn}>Download PGN</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={copyFen}>Copy FEN</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={saveFenToNotebook}>Save position to notebook</button><span className="text-xs text-stone-500 self-center">{saveStatus}</span></div>
+          <div className="flex flex-wrap gap-2"><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={copyPgn}>{copied ? "Copied!" : "Copy PGN"}</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={downloadGamePgn}>Download PGN</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={copyFen}>Copy FEN</button><button className="rounded-full border px-3 py-1.5 text-xs font-semibold" onClick={triggerSavePosition} disabled={!onSavePosition}>Save position to notebook</button></div>
         </div>
       </section>
 
