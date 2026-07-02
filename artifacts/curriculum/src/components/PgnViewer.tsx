@@ -127,8 +127,8 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle }: Props) {
           </div>
         </aside>
 
-        <main className="rounded-[1.5rem] border border-stone-200 bg-white p-4">
-          <div className="mx-auto max-w-[560px]"><Chessboard options={{ position: current?.fen, boardOrientation: flipped ? "black" : "white", squareStyles, allowDragging: false, showAnimations: false }} /></div>
+        <main className="rounded-[1.5rem] border border-stone-200 bg-white p-4 overflow-visible">
+          <div className="mx-auto w-full max-w-[480px] aspect-square"><Chessboard options={{ position: current?.fen, boardOrientation: flipped ? "black" : "white", squareStyles, allowDragging: false, showAnimations: false }} /></div>
           <div className="mt-4 flex flex-wrap justify-center gap-2"><button className="rounded-full border px-3 py-1.5 text-sm" onClick={() => setPly(0)}>First</button><button className="rounded-full border px-3 py-1.5 text-sm" onClick={() => setPly((p) => Math.max(0, p - 1))}>Previous</button><span className="px-3 py-1.5 text-sm text-stone-500">Ply {current?.ply ?? 0}/{positions.length - 1}</span><button className="rounded-full border px-3 py-1.5 text-sm" onClick={() => setPly((p) => Math.min(positions.length - 1, p + 1))}>Next</button><button className="rounded-full border px-3 py-1.5 text-sm" onClick={() => setPly(positions.length - 1)}>Last</button><button className="rounded-full border px-3 py-1.5 text-sm" onClick={() => setFlipped((v) => !v)}>Flip board</button></div>
         </main>
 
