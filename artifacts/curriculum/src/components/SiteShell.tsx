@@ -93,31 +93,56 @@ export function SiteShell({ children }: { children: ReactNode }) {
             </div>
             <div>
               <p className="text-lg font-semibold tracking-tight">Curriculum</p>
-              <p className="text-sm text-stone-500">Chess chapter library and study desk</p>
+              <p className="text-sm text-stone-500">
+                Chess chapter library and study desk
+              </p>
             </div>
           </Link>
 
           <nav className="flex items-center gap-3 text-sm">
-            <Link className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100" href="/library">
+            <Link
+              className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100"
+              href="/library"
+            >
               Library
             </Link>
-            <Link className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100" href="/notebook">
+            <Link
+              className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100"
+              href="/notebook"
+            >
               Notebook
             </Link>
-            <Link className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100" href="/upload">
+            <Link
+              className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100"
+              href="/positions"
+            >
+              Position Search
+            </Link>
+            <Link
+              className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100"
+              href="/upload"
+            >
               Upload
             </Link>
-            <Link className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100" href="/pgn-taxonomy">
+            <Link
+              className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100"
+              href="/pgn-taxonomy"
+            >
               PGN Taxonomy
             </Link>
-            <Link className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100" href="/pdf-taxonomy">
+            <Link
+              className="rounded-full px-4 py-2 text-stone-700 transition hover:bg-stone-100"
+              href="/pdf-taxonomy"
+            >
               PDF Taxonomy
             </Link>
           </nav>
         </div>
         <GlobalUploadBar />
       </header>
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-8">{children}</main>
+      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 py-8">
+        {children}
+      </main>
     </div>
   );
 }

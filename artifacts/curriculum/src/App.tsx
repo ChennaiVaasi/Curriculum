@@ -7,6 +7,7 @@ import LibraryPage from "@/pages/LibraryPage";
 import BookPage from "@/pages/BookPage";
 import ChapterPage from "@/pages/ChapterPage";
 import NotebookPage from "@/pages/NotebookPage";
+import PositionSearchPage from "@/pages/PositionSearchPage";
 import UploadPage from "@/pages/UploadPage";
 import PgnTaxonomyPage from "@/pages/PgnTaxonomyPage";
 import PdfTaxonomyPage from "@/pages/PdfTaxonomyPage";
@@ -23,6 +24,7 @@ function Router() {
         <Route path="/books/:bookId" component={BookPage} />
         <Route path="/chapters/:chapterId" component={ChapterPage} />
         <Route path="/notebook" component={NotebookPage} />
+        <Route path="/positions" component={PositionSearchPage} />
         <Route path="/upload" component={UploadPage} />
         <Route path="/pgn-taxonomy" component={PgnTaxonomyPage} />
         <Route path="/pdf-taxonomy" component={PdfTaxonomyPage} />
