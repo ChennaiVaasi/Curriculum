@@ -102,7 +102,10 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle, onSavePosit
     if (!current) return;
     onSavePosition?.({
       fen: current.fen,
-      pgn: game.raw,
+      fullPgn: game.raw,
+      moves: game.moves,
+      currentPly: current.ply,
+      gameHeaders: game.headers,
       sourceMessage: `${gameLabel(game, gameIndex)} ply ${current.ply}`,
     });
   }
