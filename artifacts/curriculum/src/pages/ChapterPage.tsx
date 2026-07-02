@@ -81,54 +81,50 @@ export default function ChapterPage() {
         {chapter.notes ? <p className="mt-5 text-sm leading-7 text-stone-600">{chapter.notes}</p> : null}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+      {isPgn ? (
         <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
           <div className="border-b border-stone-200 px-6 py-5">
-            <h2 className="text-lg font-semibold tracking-tight">
-              {isPgn ? "PGN Viewer" : "Chapter reader"}
-            </h2>
-            <p className="mt-1 text-sm text-stone-500">
-              {isPgn
-                ? "Game notation stored with this chapter."
-                : "PDFs are served securely through the app."}
-            </p>
+            <h2 className="text-lg font-semibold tracking-tight">PGN Viewer</h2>
+            <p className="mt-1 text-sm text-stone-500">Game notation stored with this chapter.</p>
           </div>
-
-          {isPgn ? (
-            <PgnViewer
-              pgn={chapter.pgn}
+          <PgnViewer
+            pgn={chapter.pgn}
+            chapterId={chapter.id}
+            chapterTitle={chapter.title}
+            bookTitle={book?.title}
+            onSavePosition={setSavePayload}
+          />
+        </section>
+      ) : (
+        <div className="grid gap-6 xl:grid-cols-[1fr_420px]">
+          <section className="overflow-hidden rounded-[2rem] border border-stone-200 bg-white shadow-[0_24px_60px_-32px_rgba(41,37,36,0.35)]">
+            <div className="border-b border-stone-200 px-6 py-5">
+              <h2 className="text-lg font-semibold tracking-tight">Chapter reader</h2>
+              <p className="mt-1 text-sm text-stone-500">PDFs are served securely through the app.</p>
+            </div>
+            <PdfViewer
+              url={`/api/files/${chapter.id}`}
+              title={chapter.title}
               chapterId={chapter.id}
               chapterTitle={chapter.title}
               bookTitle={book?.title}
-              onSavePosition={setSavePayload}
             />
-          ) : (
-            <>
-              <PdfViewer
-                url={`/api/files/${chapter.id}`}
-                title={chapter.title}
-                chapterId={chapter.id}
-                chapterTitle={chapter.title}
-                bookTitle={book?.title}
-              />
-              <div className="border-t border-stone-100 px-6 py-4">
-                <button
-                  onClick={() =>
-                    setSavePayload({ fen: "", pgn: undefined, sourceMessage: `From chapter: ${chapter.title}` })
-                  }
-                  className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50"
-                >
-                  Save a position to notebook
-                </button>
-              </div>
-            </>
-          )}
-        </section>
-
-        <div className="sticky top-6 h-fit">
-          <ChapterChat key={chapter.id} chapterId={chapter.id} chapterTitle={chapter.title} bookTitle={book?.title} />
+            <div className="border-t border-stone-100 px-6 py-4">
+              <button
+                onClick={() =>
+                  setSavePayload({ fen: "", sourceMessage: `From chapter: ${chapter.title}` })
+                }
+                className="rounded-full border border-stone-300 px-4 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50"
+              >
+                Save a position to notebook
+              </button>
+            </div>
+          </section>
+          <div className="sticky top-6 h-fit">
+            <ChapterChat key={chapter.id} chapterId={chapter.id} chapterTitle={chapter.title} bookTitle={book?.title} />
+          </div>
         </div>
-      </div>
+      )}
 
       {savePayload && (
         <SavePositionModal

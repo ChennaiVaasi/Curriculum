@@ -104,6 +104,7 @@ export function PgnViewer({ pgn, chapterId, chapterTitle, bookTitle, onSavePosit
       fen: current.fen,
       fullPgn: game.raw,
       moves: game.moves,
+      positions,
       currentPly: current.ply,
       gameHeaders: game.headers,
       sourceMessage: `${gameLabel(game, gameIndex)} ply ${current.ply}`,
