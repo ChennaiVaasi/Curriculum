@@ -79,7 +79,7 @@ export function notebookEntryToPgn(entry: NotebookFen) {
   const date = entry.savedAt.slice(0, 10).replace(/-/g, ".");
   const sourceComment = sanitizeComment(entry.sourceMessage);
 
-  return [
+  const lines = [
     `[Event "${escapeTagValue(eventName)}"]`,
     `[Site "Curriculum"]`,
     `[Date "${date}"]`,
@@ -87,13 +87,22 @@ export function notebookEntryToPgn(entry: NotebookFen) {
     `[White "?"]`,
     `[Black "?"]`,
     `[Result "*"]`,
-    `[SetUp "1"]`,
-    `[FEN "${escapeTagValue(entry.fen)}"]`,
-    "",
-    `{Saved from chapter chat: ${sourceComment}} *`,
-  ].join("\n");
+  ];
+
+  if (entry.fen) {
+    lines.push(`[SetUp "1"]`);
+    lines.push(`[FEN "${escapeTagValue(entry.fen)}"]`);
+  }
+
+  lines.push("", `{${sourceComment}} *`);
+  return lines.join("\n");
 }
 
 export function notebookToPgn(entries: NotebookFen[]) {
-  return entries.map(notebookEntryToPgn).join("\n\n");
+  return entries
+    .map((entry) => {
+      const withPgn = entry as NotebookFen & { pgn?: string };
+      return withPgn.pgn?.trim() || notebookEntryToPgn(entry);
+    })
+    .join("\n\n");
 }
