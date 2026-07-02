@@ -43,7 +43,19 @@ function safeRead<T>(key: string, fallback: T): T {
 }
 
 function write<T>(key: string, value: T) {
-  window.localStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch (err) {
+    if (
+      err instanceof DOMException &&
+      (err.name === "QuotaExceededError" ||
+        err.name === "NS_ERROR_DOM_QUOTA_REACHED")
+    ) {
+      console.warn(`[position-workflow] localStorage quota exceeded for key "${key}"`);
+    } else {
+      throw err;
+    }
+  }
 }
 
 export function makePositionId(prefix = "pos") {
@@ -54,8 +66,14 @@ export function readImportCandidates() {
   return safeRead<ImportCandidate[]>(IMPORT_CANDIDATES_KEY, []);
 }
 
+function slimCandidate(c: ImportCandidate): ImportCandidate {
+  if (!c.pgn) return c;
+  const { pgn, ...rest } = c;
+  return { ...rest, pgn: pgn.length > 2000 ? pgn.slice(0, 2000) : pgn };
+}
+
 export function writeImportCandidates(candidates: ImportCandidate[]) {
-  write(IMPORT_CANDIDATES_KEY, candidates);
+  write(IMPORT_CANDIDATES_KEY, candidates.map(slimCandidate));
 }
 
 export function readNotebooks() {
