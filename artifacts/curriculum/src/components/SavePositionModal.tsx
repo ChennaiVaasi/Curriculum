@@ -70,6 +70,10 @@ function buildClipPgn(
     } else {
       text += `${m.san} `;
     }
+    if (m.comment) {
+      const safe = m.comment.replace(/[{}]/g, "").trim();
+      if (safe) text += `{${safe}} `;
+    }
   });
 
   return `${headerLines}\n\n${text.trim()} *`;

@@ -70,6 +70,11 @@ export function NotebookClient() {
     setStatus("FEN copied.");
   }
 
+  async function copyPgn(pgn: string) {
+    await navigator.clipboard.writeText(pgn);
+    setStatus("PGN copied.");
+  }
+
   async function copyNotebookPgn() {
     await navigator.clipboard.writeText(notebookToPgn(sortedEntries));
     setStatus("All positions copied as PGN.");
@@ -304,9 +309,12 @@ export function NotebookClient() {
                       {entry.bookTitle ? <span>{entry.bookTitle}</span> : null}
                       {entry.bookTitle ? <span>-</span> : null}
                       <span>{entry.title || entry.chapterTitle}</span>
+                      {!entry.fen && entry.pgn && (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 normal-case tracking-normal">Clip</span>
+                      )}
                     </div>
-                    <pre className="overflow-x-auto rounded-[1.25rem] bg-stone-900 px-4 py-3 font-mono text-xs leading-6 text-amber-50">
-                      {entry.fen}
+                    <pre className="overflow-x-auto rounded-[1.25rem] bg-stone-900 px-4 py-3 font-mono text-xs leading-6 text-amber-50 whitespace-pre-wrap break-words max-h-40">
+                      {entry.fen || entry.pgn || ""}
                     </pre>
                   </div>
                 </div>
@@ -314,13 +322,23 @@ export function NotebookClient() {
                   className="flex flex-wrap gap-2"
                   onClick={(e) => e.stopPropagation()}
                 >
-                  <button
-                    type="button"
-                    onClick={() => copyFen(entry.fen)}
-                    className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-amber-50 transition hover:bg-stone-700"
-                  >
-                    Copy FEN
-                  </button>
+                  {entry.fen ? (
+                    <button
+                      type="button"
+                      onClick={() => copyFen(entry.fen)}
+                      className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-amber-50 transition hover:bg-stone-700"
+                    >
+                      Copy FEN
+                    </button>
+                  ) : entry.pgn ? (
+                    <button
+                      type="button"
+                      onClick={() => copyPgn(entry.pgn!)}
+                      className="rounded-full bg-stone-900 px-4 py-2 text-sm font-semibold text-amber-50 transition hover:bg-stone-700"
+                    >
+                      Copy PGN
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     onClick={() => downloadEntry(entry)}
